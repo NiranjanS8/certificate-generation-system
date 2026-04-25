@@ -33,4 +33,10 @@ public class Organization {
 
     private String website;
 
+    @Column(name = "logo_url")
+    private String logoUrl;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 }
