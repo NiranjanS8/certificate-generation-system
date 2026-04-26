@@ -5,6 +5,7 @@ import com.niranjan.certificates.dto.response.CertificateResponse;
 import com.niranjan.certificates.dto.response.VerifyResponse;
 import com.niranjan.certificates.entity.*;
 import com.niranjan.certificates.exception.ResourceNotFoundException;
+import com.niranjan.certificates.exception.ScoreNotEligibleException;
 import com.niranjan.certificates.repository.CertificateRepository;
 import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.repository.RecipientRepository;
@@ -45,6 +46,14 @@ public class CertificateServiceImpl implements CertificateService {
 
         Signatory signatory = signatoryRepository.findByIdAndOrganizationId(request.getSignatoryId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", request.getSignatoryId()));
+
+        // Score eligibility check
+        if (org.getMinimumScore() != null) {
+            int recipientScore = recipient.getScore() != null ? recipient.getScore() : 0;
+            if (recipientScore < org.getMinimumScore()) {
+                throw new ScoreNotEligibleException(recipientScore, org.getMinimumScore());
+            }
+        }
 
         // Generate unique code: CERT-XXXXXX
         String uniqueCode = generateUniqueCode();

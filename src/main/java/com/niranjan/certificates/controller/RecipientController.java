@@ -19,34 +19,35 @@ public class RecipientController {
 
     private final RecipientService recipientService;
 
-    // Hardcoded orgId until Phase 5 (JWT auth)
-    private static final UUID ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-
     @PostMapping
-    public ResponseEntity<RecipientResponse> create(@Valid @RequestBody RecipientRequest request) {
-        RecipientResponse response = recipientService.create(ORG_ID, request);
+    public ResponseEntity<RecipientResponse> create(@RequestHeader("X-Org-Id") UUID orgId,
+                                                    @Valid @RequestBody RecipientRequest request) {
+        RecipientResponse response = recipientService.create(orgId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
-    public ResponseEntity<List<RecipientResponse>> getAll() {
-        return ResponseEntity.ok(recipientService.getAll(ORG_ID));
+    public ResponseEntity<List<RecipientResponse>> getAll(@RequestHeader("X-Org-Id") UUID orgId) {
+        return ResponseEntity.ok(recipientService.getAll(orgId));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<RecipientResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(recipientService.getById(ORG_ID, id));
+    public ResponseEntity<RecipientResponse> getById(@RequestHeader("X-Org-Id") UUID orgId,
+                                                     @PathVariable UUID id) {
+        return ResponseEntity.ok(recipientService.getById(orgId, id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<RecipientResponse> update(@PathVariable UUID id,
+    public ResponseEntity<RecipientResponse> update(@RequestHeader("X-Org-Id") UUID orgId,
+                                                    @PathVariable UUID id,
                                                     @Valid @RequestBody RecipientRequest request) {
-        return ResponseEntity.ok(recipientService.update(ORG_ID, id, request));
+        return ResponseEntity.ok(recipientService.update(orgId, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        recipientService.delete(ORG_ID, id);
+    public ResponseEntity<Void> delete(@RequestHeader("X-Org-Id") UUID orgId,
+                                       @PathVariable UUID id) {
+        recipientService.delete(orgId, id);
         return ResponseEntity.noContent().build();
     }
 }

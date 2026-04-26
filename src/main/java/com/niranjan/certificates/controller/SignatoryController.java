@@ -22,46 +22,49 @@ public class SignatoryController {
     private final SignatoryService signatoryService;
     private final FileStorageService fileStorageService;
 
-    // Hardcoded orgId until Phase 5 (JWT auth)
-    private static final UUID ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-
     @PostMapping
-    public ResponseEntity<SignatoryResponse> create(@Valid @RequestBody SignatoryRequest request) {
-        SignatoryResponse response = signatoryService.create(ORG_ID, request);
+    public ResponseEntity<SignatoryResponse> create(@RequestHeader("X-Org-Id") UUID orgId,
+                                                    @Valid @RequestBody SignatoryRequest request) {
+        SignatoryResponse response = signatoryService.create(orgId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
-    public ResponseEntity<List<SignatoryResponse>> getAll() {
-        return ResponseEntity.ok(signatoryService.getAll(ORG_ID));
+    public ResponseEntity<List<SignatoryResponse>> getAll(@RequestHeader("X-Org-Id") UUID orgId) {
+        return ResponseEntity.ok(signatoryService.getAll(orgId));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SignatoryResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(signatoryService.getById(ORG_ID, id));
+    public ResponseEntity<SignatoryResponse> getById(@RequestHeader("X-Org-Id") UUID orgId,
+                                                     @PathVariable UUID id) {
+        return ResponseEntity.ok(signatoryService.getById(orgId, id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<SignatoryResponse> update(@PathVariable UUID id,
+    public ResponseEntity<SignatoryResponse> update(@RequestHeader("X-Org-Id") UUID orgId,
+                                                    @PathVariable UUID id,
                                                     @Valid @RequestBody SignatoryRequest request) {
-        return ResponseEntity.ok(signatoryService.update(ORG_ID, id, request));
+        return ResponseEntity.ok(signatoryService.update(orgId, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        signatoryService.delete(ORG_ID, id);
+    public ResponseEntity<Void> delete(@RequestHeader("X-Org-Id") UUID orgId,
+                                       @PathVariable UUID id) {
+        signatoryService.delete(orgId, id);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/default")
-    public ResponseEntity<SignatoryResponse> setDefault(@PathVariable UUID id) {
-        return ResponseEntity.ok(signatoryService.setDefault(ORG_ID, id));
+    public ResponseEntity<SignatoryResponse> setDefault(@RequestHeader("X-Org-Id") UUID orgId,
+                                                        @PathVariable UUID id) {
+        return ResponseEntity.ok(signatoryService.setDefault(orgId, id));
     }
 
     @PostMapping("/{id}/signature")
-    public ResponseEntity<SignatoryResponse> uploadSignature(@PathVariable UUID id,
+    public ResponseEntity<SignatoryResponse> uploadSignature(@RequestHeader("X-Org-Id") UUID orgId,
+                                                             @PathVariable UUID id,
                                                              @RequestParam("file") MultipartFile file) {
         String signatureUrl = fileStorageService.saveFile(file, "signatures");
-        return ResponseEntity.ok(signatoryService.updateSignatureUrl(ORG_ID, id, signatureUrl));
+        return ResponseEntity.ok(signatoryService.updateSignatureUrl(orgId, id, signatureUrl));
     }
 }

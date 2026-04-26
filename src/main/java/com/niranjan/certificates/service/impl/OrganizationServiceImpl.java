@@ -1,5 +1,6 @@
 package com.niranjan.certificates.service.impl;
 
+import com.niranjan.certificates.dto.request.RegisterRequest;
 import com.niranjan.certificates.dto.request.UpdateOrgRequest;
 import com.niranjan.certificates.dto.response.OrganizationResponse;
 import com.niranjan.certificates.entity.Organization;
@@ -18,6 +19,19 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final OrganizationRepository organizationRepository;
 
     @Override
+    public OrganizationResponse register(RegisterRequest request) {
+        Organization org = Organization.builder()
+                .name(request.getName())
+                .email(request.getEmail())
+                .passwordHash(request.getPassword()) // plain text — no security phase
+                .website(request.getWebsite())
+                .build();
+
+        Organization saved = organizationRepository.save(org);
+        return mapToResponse(saved);
+    }
+
+    @Override
     public OrganizationResponse getProfile(UUID orgId) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
@@ -31,6 +45,7 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         org.setName(request.getName());
         org.setWebsite(request.getWebsite());
+        org.setMinimumScore(request.getMinimumScore());
 
         Organization saved = organizationRepository.save(org);
         return mapToResponse(saved);
@@ -41,7 +56,6 @@ public class OrganizationServiceImpl implements OrganizationService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
 
-        // Delete old logo file if it exists
         org.setLogoUrl(logoUrl);
 
         Organization saved = organizationRepository.save(org);
@@ -55,7 +69,9 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .email(org.getEmail())
                 .website(org.getWebsite())
                 .logoUrl(org.getLogoUrl())
+                .minimumScore(org.getMinimumScore())
                 .createdAt(org.getCreatedAt())
                 .build();
     }
 }
+

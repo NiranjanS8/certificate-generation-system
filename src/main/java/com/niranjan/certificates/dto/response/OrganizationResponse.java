@@ -19,5 +19,6 @@ public class OrganizationResponse {
     private String email;
     private String website;
     private String logoUrl;
+    private Integer minimumScore;
     private LocalDateTime createdAt;
 }

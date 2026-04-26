@@ -21,29 +21,29 @@ public class CertificateController {
 
     private final CertificateService certificateService;
 
-    // Hardcoded orgId until Phase 5 (JWT auth)
-    private static final UUID ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-
     @PostMapping("/api/certificates/generate")
-    public ResponseEntity<CertificateResponse> generate(@Valid @RequestBody CertificateRequest request) {
-        CertificateResponse response = certificateService.generate(ORG_ID, request);
+    public ResponseEntity<CertificateResponse> generate(@RequestHeader("X-Org-Id") UUID orgId,
+                                                        @Valid @RequestBody CertificateRequest request) {
+        CertificateResponse response = certificateService.generate(orgId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/api/certificates")
-    public ResponseEntity<List<CertificateResponse>> getAll() {
-        return ResponseEntity.ok(certificateService.getAll(ORG_ID));
+    public ResponseEntity<List<CertificateResponse>> getAll(@RequestHeader("X-Org-Id") UUID orgId) {
+        return ResponseEntity.ok(certificateService.getAll(orgId));
     }
 
     @GetMapping("/api/certificates/{id}")
-    public ResponseEntity<CertificateResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(certificateService.getById(ORG_ID, id));
+    public ResponseEntity<CertificateResponse> getById(@RequestHeader("X-Org-Id") UUID orgId,
+                                                       @PathVariable UUID id) {
+        return ResponseEntity.ok(certificateService.getById(orgId, id));
     }
 
     @GetMapping("/api/certificates/download/{id}")
-    public ResponseEntity<byte[]> download(@PathVariable UUID id) {
-        byte[] pdfBytes = certificateService.downloadPdf(ORG_ID, id);
-        String uniqueCode = certificateService.getUniqueCodeById(ORG_ID, id);
+    public ResponseEntity<byte[]> download(@RequestHeader("X-Org-Id") UUID orgId,
+                                           @PathVariable UUID id) {
+        byte[] pdfBytes = certificateService.downloadPdf(orgId, id);
+        String uniqueCode = certificateService.getUniqueCodeById(orgId, id);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
@@ -52,7 +52,7 @@ public class CertificateController {
         return ResponseEntity.ok().headers(headers).body(pdfBytes);
     }
 
-    // PUBLIC endpoint — no auth required
+    // PUBLIC endpoint — no auth required, no X-Org-Id needed
     @GetMapping("/api/verify/{uniqueCode}")
     public ResponseEntity<VerifyResponse> verify(@PathVariable String uniqueCode) {
         return ResponseEntity.ok(certificateService.verify(uniqueCode));
