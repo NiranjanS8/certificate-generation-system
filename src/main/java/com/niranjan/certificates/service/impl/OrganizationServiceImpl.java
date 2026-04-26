@@ -4,6 +4,7 @@ import com.niranjan.certificates.dto.request.RegisterRequest;
 import com.niranjan.certificates.dto.request.UpdateOrgRequest;
 import com.niranjan.certificates.dto.response.OrganizationResponse;
 import com.niranjan.certificates.entity.Organization;
+import com.niranjan.certificates.exception.DuplicateResourceException;
 import com.niranjan.certificates.exception.ResourceNotFoundException;
 import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.service.OrganizationService;
@@ -20,6 +21,10 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     @Override
     public OrganizationResponse register(RegisterRequest request) {
+        if (organizationRepository.existsByEmail(request.getEmail())) {
+            throw new DuplicateResourceException("Organization", "email", request.getEmail());
+        }
+
         Organization org = Organization.builder()
                 .name(request.getName())
                 .email(request.getEmail())
@@ -45,7 +50,6 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         org.setName(request.getName());
         org.setWebsite(request.getWebsite());
-        org.setMinimumScore(request.getMinimumScore());
 
         Organization saved = organizationRepository.save(org);
         return mapToResponse(saved);
@@ -69,7 +73,6 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .email(org.getEmail())
                 .website(org.getWebsite())
                 .logoUrl(org.getLogoUrl())
-                .minimumScore(org.getMinimumScore())
                 .createdAt(org.getCreatedAt())
                 .build();
     }

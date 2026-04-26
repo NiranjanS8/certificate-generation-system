@@ -36,9 +36,6 @@ public class Organization {
     @Column(name = "logo_url")
     private String logoUrl;
 
-    @Column(name = "minimum_score")
-    private Integer minimumScore;
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

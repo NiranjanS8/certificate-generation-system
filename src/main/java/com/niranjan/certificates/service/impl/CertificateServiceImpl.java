@@ -14,6 +14,7 @@ import com.niranjan.certificates.service.CertificateService;
 import com.niranjan.certificates.service.PdfService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,6 +38,7 @@ public class CertificateServiceImpl implements CertificateService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     @Override
+    @Transactional
     public CertificateResponse generate(UUID orgId, CertificateRequest request) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
@@ -80,6 +82,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CertificateResponse> getAll(UUID orgId) {
         return certificateRepository.findAllByOrganizationId(orgId)
                 .stream()
@@ -88,6 +91,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CertificateResponse getById(UUID orgId, UUID id) {
         Certificate certificate = certificateRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Certificate", "id", id));
@@ -115,6 +119,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public VerifyResponse verify(String uniqueCode) {
         Certificate certificate = certificateRepository.findByUniqueCode(uniqueCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Certificate", "uniqueCode", uniqueCode));

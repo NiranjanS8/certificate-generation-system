@@ -45,8 +45,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(422).body(body);
     }
 
-    @ExceptionHandler(ScoreNotEligibleException.class)
-    public ResponseEntity<Map<String, Object>> handleScoreNotEligible(ScoreNotEligibleException ex) {
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateResource(DuplicateResourceException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", HttpStatus.CONFLICT.value());
+        body.put("message", ex.getMessage());
+        body.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         Map<String, Object> body = new HashMap<>();
         body.put("status", HttpStatus.BAD_REQUEST.value());
         body.put("message", ex.getMessage());

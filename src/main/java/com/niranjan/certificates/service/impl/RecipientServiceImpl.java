@@ -12,8 +12,10 @@ import com.niranjan.certificates.repository.RecipientRepository;
 import com.niranjan.certificates.service.RecipientService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +28,7 @@ public class RecipientServiceImpl implements RecipientService {
     private final CourseRepository courseRepository;
 
     @Override
+    @Transactional
     public RecipientResponse create(UUID orgId, RecipientRequest request) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
@@ -40,7 +43,7 @@ public class RecipientServiceImpl implements RecipientService {
                 .email(request.getEmail())
                 .score(request.getScore())
                 .grade(request.getGrade())
-                .completionDate(LocalDate.parse(request.getCompletionDate()))
+                .completionDate(parseDate(request.getCompletionDate()))
                 .build();
 
         Recipient saved = recipientRepository.save(recipient);
@@ -48,6 +51,7 @@ public class RecipientServiceImpl implements RecipientService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<RecipientResponse> getAll(UUID orgId) {
         return recipientRepository.findAllByOrganizationId(orgId)
                 .stream()
@@ -56,6 +60,7 @@ public class RecipientServiceImpl implements RecipientService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public RecipientResponse getById(UUID orgId, UUID id) {
         Recipient recipient = recipientRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipient", "id", id));
@@ -63,6 +68,7 @@ public class RecipientServiceImpl implements RecipientService {
     }
 
     @Override
+    @Transactional
     public RecipientResponse update(UUID orgId, UUID id, RecipientRequest request) {
         Recipient recipient = recipientRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipient", "id", id));
@@ -75,7 +81,7 @@ public class RecipientServiceImpl implements RecipientService {
         recipient.setEmail(request.getEmail());
         recipient.setScore(request.getScore());
         recipient.setGrade(request.getGrade());
-        recipient.setCompletionDate(LocalDate.parse(request.getCompletionDate()));
+        recipient.setCompletionDate(parseDate(request.getCompletionDate()));
 
         Recipient saved = recipientRepository.save(recipient);
         return mapToResponse(saved);
@@ -101,5 +107,14 @@ public class RecipientServiceImpl implements RecipientService {
                 .completionDate(recipient.getCompletionDate())
                 .createdAt(recipient.getCreatedAt())
                 .build();
+    }
+
+    private LocalDate parseDate(String dateStr) {
+        try {
+            return LocalDate.parse(dateStr);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                    "Invalid date format: '" + dateStr + "'. Expected format: yyyy-MM-dd");
+        }
     }
 }

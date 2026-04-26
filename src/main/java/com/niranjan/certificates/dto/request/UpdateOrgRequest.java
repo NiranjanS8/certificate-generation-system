@@ -14,6 +14,4 @@ public class UpdateOrgRequest {
     private String name;
 
     private String website;
-
-    private Integer minimumScore;
 }
