@@ -1,7 +1,9 @@
 package com.niranjan.certificates.service.impl;
 
 import com.lowagie.text.*;
+import com.lowagie.text.pdf.ColumnText;
 import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfGState;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
@@ -32,7 +34,7 @@ public class PdfServiceImpl implements PdfService {
 
     // Colors
     private static final Color PRIMARY = new Color(30, 58, 95);
-    private static final Color ACCENT = new Color(211, 84, 0);
+    private static final Color ACCENT = new Color(216, 90, 48);
     private static final Color DARK_TEXT = new Color(33, 33, 33);
     private static final Color GRAY_TEXT = new Color(120, 120, 120);
     private static final Color LIGHT_GRAY = new Color(200, 200, 200);
@@ -70,34 +72,43 @@ public class PdfServiceImpl implements PdfService {
             canvas.rectangle(20, 20, 802, 555);
             canvas.fill();
 
-            // Left accent bar
-            canvas.setColorFill(ACCENT);
-            canvas.rectangle(20, 20, 8, 555);
-            canvas.fill();
-
-            // Top accent line
-            canvas.setColorFill(ACCENT);
-            canvas.rectangle(28, 571, 794, 4);
-            canvas.fill();
-
-            // Bottom accent line
+            // Left bar
             canvas.setColorFill(PRIMARY);
-            canvas.rectangle(28, 20, 794, 3);
+            canvas.rectangle(20, 20, 3, 555);
             canvas.fill();
 
-            // Decorative circles (top-right)
+            // Top line
+            canvas.setColorFill(PRIMARY);
+            canvas.rectangle(23, 572, 799, 1);
+            canvas.fill();
+
+            // Bottom line
+            canvas.setColorFill(PRIMARY);
+            canvas.rectangle(23, 20, 799, 1);
+            canvas.fill();
+
+            // Corner dot
+            canvas.setColorFill(ACCENT);
+            canvas.rectangle(819, 572, 3, 3);
+            canvas.fill();
+
+            // Ghost rings
             PdfContentByte over = writer.getDirectContent();
-            over.setColorFill(new Color(211, 84, 0, 30));
-            over.circle(780, 520, 55);
-            over.fill();
-            over.setColorFill(new Color(211, 84, 0, 15));
-            over.circle(800, 475, 35);
-            over.fill();
+            PdfGState ghostState = new PdfGState();
+            ghostState.setStrokeOpacity(0.05f);
+            over.saveState();
+            over.setGState(ghostState);
+            over.setColorStroke(PRIMARY);
+            over.setLineWidth(0.8f);
+            over.circle(820, 530, 80);
+            over.stroke();
+            over.circle(790, 490, 45);
+            over.stroke();
+            over.restoreState();
 
             // ===== FONTS =====
-            Font orgFont = new Font(Font.HELVETICA, 14, Font.BOLD, ACCENT);
-            Font certLabelFont = new Font(Font.HELVETICA, 32, Font.BOLD, PRIMARY);
-            Font subtitleFont = new Font(Font.HELVETICA, 12, Font.NORMAL, GRAY_TEXT);
+            Font orgFont = new Font(Font.HELVETICA, 14, Font.BOLD, PRIMARY);
+            Font certTitleFont = new Font(Font.HELVETICA, 26, Font.BOLD, PRIMARY);
             Font nameFont = new Font(Font.HELVETICA, 28, Font.BOLD, DARK_TEXT);
             Font bodyFont = new Font(Font.HELVETICA, 11, Font.NORMAL, GRAY_TEXT);
             Font bodyBoldFont = new Font(Font.HELVETICA, 11, Font.BOLD, DARK_TEXT);
@@ -106,6 +117,10 @@ public class PdfServiceImpl implements PdfService {
             Font footerLabelFont = new Font(Font.HELVETICA, 8, Font.BOLD, GRAY_TEXT);
             Font footerValueFont = new Font(Font.HELVETICA, 11, Font.NORMAL, DARK_TEXT);
             Font codeFont = new Font(Font.COURIER, 8, Font.NORMAL, LIGHT_GRAY);
+
+            Paragraph certCode = new Paragraph(uniqueCode, codeFont);
+            ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_RIGHT,
+                    certCode, 790, 545, 0);
 
             // ===== 3-ROW LAYOUT TABLE =====
             PdfPTable layout = new PdfPTable(1);
@@ -159,29 +174,18 @@ public class PdfServiceImpl implements PdfService {
             bodyCell.setPaddingRight(80);
             bodyCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 
-            // "CERTIFICATE" large title
-            Paragraph certTitle = new Paragraph("CERTIFICATE", certLabelFont);
-            certTitle.setSpacingAfter(2);
+            Paragraph certTitle = new Paragraph(certificateTitle, certTitleFont);
+            certTitle.setSpacingAfter(4);
             bodyCell.addElement(certTitle);
-
-            // Subtitle: "OF COMPLETION"
-            String subtitleText = certificateTitle.toUpperCase().replace("CERTIFICATE", "").trim();
-            if (!subtitleText.startsWith("OF")) {
-                subtitleText = "OF " + subtitleText;
-            }
-            Paragraph subtitle = new Paragraph(subtitleText, subtitleFont);
-            subtitle.setSpacingAfter(15);
-            bodyCell.addElement(subtitle);
 
             // Thin divider line
             PdfPTable divider = new PdfPTable(1);
             divider.setWidthPercentage(25);
             divider.setHorizontalAlignment(Element.ALIGN_LEFT);
             PdfPCell dividerLine = new PdfPCell();
-            dividerLine.setBorder(Rectangle.BOTTOM);
-            dividerLine.setBorderColor(ACCENT);
-            dividerLine.setBorderWidth(2f);
-            dividerLine.setFixedHeight(1);
+            dividerLine.setBorder(Rectangle.NO_BORDER);
+            dividerLine.setBackgroundColor(ACCENT);
+            dividerLine.setFixedHeight(2);
             divider.addCell(dividerLine);
             bodyCell.addElement(divider);
 
@@ -231,10 +235,10 @@ public class PdfServiceImpl implements PdfService {
             footerCell.setPaddingRight(80);
             footerCell.setPaddingTop(15);
 
-            // 3-column footer table
-            PdfPTable footerTable = new PdfPTable(3);
+            // 2-column footer table
+            PdfPTable footerTable = new PdfPTable(2);
             footerTable.setWidthPercentage(100);
-            footerTable.setWidths(new float[]{30, 40, 30});
+            footerTable.setWidths(new float[]{50, 50});
 
             // DATE column
             PdfPCell dateCol = new PdfPCell();
@@ -252,18 +256,6 @@ public class PdfServiceImpl implements PdfService {
             dateCol.addElement(dateValue);
 
             footerTable.addCell(dateCol);
-
-            // CERT CODE column (center)
-            PdfPCell codeCol = new PdfPCell();
-            codeCol.setBorder(Rectangle.NO_BORDER);
-            codeCol.setVerticalAlignment(Element.ALIGN_BOTTOM);
-
-            Paragraph code = new Paragraph(uniqueCode, codeFont);
-            code.setAlignment(Element.ALIGN_CENTER);
-            code.setSpacingBefore(35);
-            codeCol.addElement(code);
-
-            footerTable.addCell(codeCol);
 
             // SIGNATURE column
             PdfPCell sigCol = new PdfPCell();
