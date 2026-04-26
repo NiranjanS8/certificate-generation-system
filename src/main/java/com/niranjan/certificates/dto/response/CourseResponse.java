@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -13,16 +12,13 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RecipientResponse {
+public class CourseResponse {
 
     private UUID id;
     private UUID orgId;
-    private UUID courseId;
-    private String courseName;
-    private String fullName;
-    private String email;
-    private Integer score;
-    private String grade;
-    private LocalDate completionDate;
+    private String name;
+    private String description;
+    private Integer minScore;
+    private Boolean isActive;
     private LocalDateTime createdAt;
 }

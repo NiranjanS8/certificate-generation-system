@@ -2,9 +2,11 @@ package com.niranjan.certificates.service.impl;
 
 import com.niranjan.certificates.dto.request.RecipientRequest;
 import com.niranjan.certificates.dto.response.RecipientResponse;
+import com.niranjan.certificates.entity.Course;
 import com.niranjan.certificates.entity.Organization;
 import com.niranjan.certificates.entity.Recipient;
 import com.niranjan.certificates.exception.ResourceNotFoundException;
+import com.niranjan.certificates.repository.CourseRepository;
 import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.repository.RecipientRepository;
 import com.niranjan.certificates.service.RecipientService;
@@ -21,17 +23,21 @@ public class RecipientServiceImpl implements RecipientService {
 
     private final RecipientRepository recipientRepository;
     private final OrganizationRepository organizationRepository;
+    private final CourseRepository courseRepository;
 
     @Override
     public RecipientResponse create(UUID orgId, RecipientRequest request) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
 
+        Course course = courseRepository.findByIdAndOrganizationId(request.getCourseId(), orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course", "id", request.getCourseId()));
+
         Recipient recipient = Recipient.builder()
                 .organization(org)
+                .course(course)
                 .fullName(request.getFullName())
                 .email(request.getEmail())
-                .courseName(request.getCourseName())
                 .score(request.getScore())
                 .grade(request.getGrade())
                 .completionDate(LocalDate.parse(request.getCompletionDate()))
@@ -61,9 +67,12 @@ public class RecipientServiceImpl implements RecipientService {
         Recipient recipient = recipientRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipient", "id", id));
 
+        Course course = courseRepository.findByIdAndOrganizationId(request.getCourseId(), orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course", "id", request.getCourseId()));
+
+        recipient.setCourse(course);
         recipient.setFullName(request.getFullName());
         recipient.setEmail(request.getEmail());
-        recipient.setCourseName(request.getCourseName());
         recipient.setScore(request.getScore());
         recipient.setGrade(request.getGrade());
         recipient.setCompletionDate(LocalDate.parse(request.getCompletionDate()));
@@ -83,9 +92,10 @@ public class RecipientServiceImpl implements RecipientService {
         return RecipientResponse.builder()
                 .id(recipient.getId())
                 .orgId(recipient.getOrganization().getId())
+                .courseId(recipient.getCourse().getId())
+                .courseName(recipient.getCourse().getName())
                 .fullName(recipient.getFullName())
                 .email(recipient.getEmail())
-                .courseName(recipient.getCourseName())
                 .score(recipient.getScore())
                 .grade(recipient.getGrade())
                 .completionDate(recipient.getCompletionDate())

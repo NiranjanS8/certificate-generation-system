@@ -36,6 +36,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    @ExceptionHandler(IneligibleRecipientException.class)
+    public ResponseEntity<Map<String, Object>> handleIneligibleRecipient(IneligibleRecipientException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", 422);
+        body.put("message", ex.getMessage());
+        body.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(422).body(body);
+    }
+
     @ExceptionHandler(ScoreNotEligibleException.class)
     public ResponseEntity<Map<String, Object>> handleScoreNotEligible(ScoreNotEligibleException ex) {
         Map<String, Object> body = new HashMap<>();

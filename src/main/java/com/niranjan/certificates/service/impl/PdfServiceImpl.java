@@ -201,7 +201,7 @@ public class PdfServiceImpl implements PdfService {
             description.add(new Chunk("This is to certify that ", bodyFont));
             description.add(new Chunk(recipient.getFullName(), bodyBoldFont));
             description.add(new Chunk(" has successfully completed the course ", bodyFont));
-            description.add(new Chunk(recipient.getCourseName(), courseFont));
+            description.add(new Chunk(recipient.getCourse().getName(), courseFont));
 
             if (recipient.getScore() != null || recipient.getGrade() != null) {
                 StringBuilder scoreText = new StringBuilder(" with ");

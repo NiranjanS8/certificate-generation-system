@@ -4,8 +4,8 @@ import com.niranjan.certificates.dto.request.CertificateRequest;
 import com.niranjan.certificates.dto.response.CertificateResponse;
 import com.niranjan.certificates.dto.response.VerifyResponse;
 import com.niranjan.certificates.entity.*;
+import com.niranjan.certificates.exception.IneligibleRecipientException;
 import com.niranjan.certificates.exception.ResourceNotFoundException;
-import com.niranjan.certificates.exception.ScoreNotEligibleException;
 import com.niranjan.certificates.repository.CertificateRepository;
 import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.repository.RecipientRepository;
@@ -47,11 +47,13 @@ public class CertificateServiceImpl implements CertificateService {
         Signatory signatory = signatoryRepository.findByIdAndOrganizationId(request.getSignatoryId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", request.getSignatoryId()));
 
-        // Score eligibility check
-        if (org.getMinimumScore() != null) {
+        // Score eligibility check against course minimum score
+        Course course = recipient.getCourse();
+        if (course.getMinScore() != null && course.getMinScore() > 0) {
             int recipientScore = recipient.getScore() != null ? recipient.getScore() : 0;
-            if (recipientScore < org.getMinimumScore()) {
-                throw new ScoreNotEligibleException(recipientScore, org.getMinimumScore());
+            if (recipientScore < course.getMinScore()) {
+                throw new IneligibleRecipientException(
+                        recipient.getFullName(), recipientScore, course.getMinScore(), course.getName());
             }
         }
 
@@ -124,7 +126,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         return VerifyResponse.builder()
                 .recipientName(certificate.getRecipient().getFullName())
-                .courseName(certificate.getRecipient().getCourseName())
+                .courseName(certificate.getRecipient().getCourse().getName())
                 .organizationName(certificate.getOrganization().getName())
                 .certificateTitle(certificate.getCertificateTitle())
                 .status(certificate.getStatus().name())
@@ -151,7 +153,7 @@ public class CertificateServiceImpl implements CertificateService {
                 .recipientId(certificate.getRecipient().getId())
                 .signatoryId(certificate.getSignatory().getId())
                 .recipientName(certificate.getRecipient().getFullName())
-                .courseName(certificate.getRecipient().getCourseName())
+                .courseName(certificate.getRecipient().getCourse().getName())
                 .certificateTitle(certificate.getCertificateTitle())
                 .uniqueCode(certificate.getUniqueCode())
                 .fileUrl(certificate.getFileUrl())

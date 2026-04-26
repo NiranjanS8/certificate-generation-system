@@ -7,17 +7,16 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "recipients")
+@Table(name = "courses")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Recipient {
+public class Course {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -27,21 +26,18 @@ public class Recipient {
     @JoinColumn(name = "org_id", nullable = false)
     private Organization organization;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "course_id", nullable = false)
-    private Course course;
+    @Column(nullable = false)
+    private String name;
 
-    @Column(name = "full_name", nullable = false)
-    private String fullName;
+    private String description;
 
-    private String email;
+    @Builder.Default
+    @Column(name = "min_score")
+    private Integer minScore = 0;
 
-    private Integer score;
-
-    private String grade;
-
-    @Column(name = "completion_date", nullable = false)
-    private LocalDate completionDate;
+    @Builder.Default
+    @Column(name = "is_active")
+    private Boolean isActive = true;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

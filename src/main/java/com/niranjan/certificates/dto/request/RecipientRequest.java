@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,8 +18,8 @@ public class RecipientRequest {
 
     private String email;
 
-    @NotBlank(message = "Course name is required")
-    private String courseName;
+    @NotNull(message = "Course ID is required")
+    private UUID courseId;
 
     private Integer score;
 
