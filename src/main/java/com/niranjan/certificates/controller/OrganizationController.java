@@ -3,16 +3,16 @@ package com.niranjan.certificates.controller;
 import com.niranjan.certificates.dto.request.RegisterRequest;
 import com.niranjan.certificates.dto.request.UpdateOrgRequest;
 import com.niranjan.certificates.dto.response.OrganizationResponse;
+import com.niranjan.certificates.security.OrganizationPrincipal;
 import com.niranjan.certificates.service.FileStorageService;
 import com.niranjan.certificates.service.OrganizationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/org")
@@ -29,21 +29,20 @@ public class OrganizationController {
     }
 
     @GetMapping("/profile")
-    public ResponseEntity<OrganizationResponse> getProfile(@RequestHeader("X-Org-Id") UUID orgId) {
-        return ResponseEntity.ok(organizationService.getProfile(orgId));
+    public ResponseEntity<OrganizationResponse> getProfile(@AuthenticationPrincipal OrganizationPrincipal principal) {
+        return ResponseEntity.ok(organizationService.getProfile(principal.getOrgId()));
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<OrganizationResponse> updateProfile(@RequestHeader("X-Org-Id") UUID orgId,
+    public ResponseEntity<OrganizationResponse> updateProfile(@AuthenticationPrincipal OrganizationPrincipal principal,
                                                               @Valid @RequestBody UpdateOrgRequest request) {
-        return ResponseEntity.ok(organizationService.updateProfile(orgId, request));
+        return ResponseEntity.ok(organizationService.updateProfile(principal.getOrgId(), request));
     }
 
     @PostMapping("/logo")
-    public ResponseEntity<OrganizationResponse> uploadLogo(@RequestHeader("X-Org-Id") UUID orgId,
+    public ResponseEntity<OrganizationResponse> uploadLogo(@AuthenticationPrincipal OrganizationPrincipal principal,
                                                            @RequestParam("file") MultipartFile file) {
         String logoUrl = fileStorageService.saveFile(file, "logos");
-        return ResponseEntity.ok(organizationService.updateLogo(orgId, logoUrl));
+        return ResponseEntity.ok(organizationService.updateLogo(principal.getOrgId(), logoUrl));
     }
 }
-

@@ -9,6 +9,7 @@ import com.niranjan.certificates.exception.ResourceNotFoundException;
 import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.service.OrganizationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class OrganizationServiceImpl implements OrganizationService {
 
     private final OrganizationRepository organizationRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public OrganizationResponse register(RegisterRequest request) {
@@ -28,7 +30,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         Organization org = Organization.builder()
                 .name(request.getName())
                 .email(request.getEmail())
-                .passwordHash(request.getPassword()) // plain text — no security phase
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .website(request.getWebsite())
                 .build();
 
@@ -77,4 +79,3 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .build();
     }
 }
-

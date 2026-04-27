@@ -2,6 +2,9 @@ package com.niranjan.certificates.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -52,6 +55,24 @@ public class GlobalExceptionHandler {
         body.put("message", ex.getMessage());
         body.put("timestamp", LocalDateTime.now().toString());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler({AuthenticationException.class, BadCredentialsException.class})
+    public ResponseEntity<Map<String, Object>> handleAuthentication(Exception ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", HttpStatus.UNAUTHORIZED.value());
+        body.put("message", "Invalid or missing credentials");
+        body.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", HttpStatus.FORBIDDEN.value());
+        body.put("message", "Access denied");
+        body.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
