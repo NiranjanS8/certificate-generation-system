@@ -38,6 +38,39 @@ class RecipientServiceImplTest {
             certificateRepository);
 
     @Test
+    void createRejectsInactiveCourse() {
+        UUID orgId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+
+        Organization organization = Organization.builder()
+                .id(orgId)
+                .name("Acme")
+                .build();
+
+        Course course = Course.builder()
+                .id(courseId)
+                .organization(organization)
+                .name("Archived Course")
+                .isActive(false)
+                .build();
+
+        RecipientRequest request = new RecipientRequest(
+                "John Doe",
+                "john@example.com",
+                courseId,
+                95,
+                "A",
+                "2026-04-27");
+
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(organization));
+        when(courseRepository.findByIdAndOrganizationId(courseId, orgId)).thenReturn(Optional.of(course));
+
+        assertThrows(IllegalArgumentException.class, () -> service.create(orgId, request));
+
+        verify(recipientRepository, never()).save(org.mockito.Mockito.any());
+    }
+
+    @Test
     void updateRejectsCourseChangeAfterCertificateIssued() {
         UUID orgId = UUID.randomUUID();
         UUID recipientId = UUID.randomUUID();
@@ -82,6 +115,55 @@ class RecipientServiceImplTest {
         when(certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipientId)).thenReturn(true);
 
         assertThrows(DuplicateResourceException.class, () -> service.update(orgId, recipientId, request));
+
+        verify(recipientRepository, never()).save(recipient);
+    }
+
+    @Test
+    void updateRejectsInactiveCourse() {
+        UUID orgId = UUID.randomUUID();
+        UUID recipientId = UUID.randomUUID();
+        UUID currentCourseId = UUID.randomUUID();
+        UUID inactiveCourseId = UUID.randomUUID();
+
+        Organization organization = Organization.builder()
+                .id(orgId)
+                .name("Acme")
+                .build();
+
+        Course currentCourse = Course.builder()
+                .id(currentCourseId)
+                .organization(organization)
+                .name("Web Development")
+                .build();
+
+        Course inactiveCourse = Course.builder()
+                .id(inactiveCourseId)
+                .organization(organization)
+                .name("Archived Course")
+                .isActive(false)
+                .build();
+
+        Recipient recipient = Recipient.builder()
+                .id(recipientId)
+                .organization(organization)
+                .course(currentCourse)
+                .fullName("John Doe")
+                .completionDate(LocalDate.now())
+                .build();
+
+        RecipientRequest request = new RecipientRequest(
+                "John Doe",
+                "john@example.com",
+                inactiveCourseId,
+                95,
+                "A",
+                "2026-04-27");
+
+        when(recipientRepository.findByIdAndOrganizationId(recipientId, orgId)).thenReturn(Optional.of(recipient));
+        when(courseRepository.findByIdAndOrganizationId(inactiveCourseId, orgId)).thenReturn(Optional.of(inactiveCourse));
+
+        assertThrows(IllegalArgumentException.class, () -> service.update(orgId, recipientId, request));
 
         verify(recipientRepository, never()).save(recipient);
     }

@@ -38,6 +38,7 @@ public class RecipientServiceImpl implements RecipientService {
 
         Course course = courseRepository.findByIdAndOrganizationId(request.getCourseId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", request.getCourseId()));
+        validateActiveCourse(course);
 
         Recipient recipient = Recipient.builder()
                 .organization(org)
@@ -78,6 +79,7 @@ public class RecipientServiceImpl implements RecipientService {
 
         Course course = courseRepository.findByIdAndOrganizationId(request.getCourseId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", request.getCourseId()));
+        validateActiveCourse(course);
 
         if (!recipient.getCourse().getId().equals(course.getId())
                 && certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {
@@ -128,6 +130,12 @@ public class RecipientServiceImpl implements RecipientService {
         } catch (DateTimeParseException e) {
             throw new IllegalArgumentException(
                     "Invalid date format: '" + dateStr + "'. Expected format: yyyy-MM-dd");
+        }
+    }
+
+    private void validateActiveCourse(Course course) {
+        if (Boolean.FALSE.equals(course.getIsActive())) {
+            throw new IllegalArgumentException("Cannot assign recipient to inactive course: " + course.getName());
         }
     }
 }
