@@ -4,6 +4,7 @@ import com.niranjan.certificates.dto.request.CertificateRequest;
 import com.niranjan.certificates.dto.response.CertificateResponse;
 import com.niranjan.certificates.dto.response.VerifyResponse;
 import com.niranjan.certificates.entity.*;
+import com.niranjan.certificates.exception.DuplicateResourceException;
 import com.niranjan.certificates.exception.IneligibleRecipientException;
 import com.niranjan.certificates.exception.ResourceNotFoundException;
 import com.niranjan.certificates.repository.CertificateRepository;
@@ -57,6 +58,13 @@ public class CertificateServiceImpl implements CertificateService {
                 throw new IneligibleRecipientException(
                         recipient.getFullName(), recipientScore, course.getMinScore(), course.getName());
             }
+        }
+
+        if (certificateRepository.existsByOrganizationIdAndRecipientIdAndRecipientCourseId(
+                orgId, recipient.getId(), course.getId())) {
+            throw new DuplicateResourceException(String.format(
+                    "Certificate already exists for recipient '%s' and course '%s'",
+                    recipient.getFullName(), course.getName()));
         }
 
         // Generate unique code: CERT-XXXXXX
