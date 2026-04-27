@@ -19,6 +19,7 @@ import java.util.Map;
 public class JwtService {
 
     private static final String TOKEN_TYPE_CLAIM = "tokenType";
+    private static final String SESSION_ID_CLAIM = "sessionId";
     private static final String ACCESS_TOKEN_TYPE = "access";
     private static final String REFRESH_TOKEN_TYPE = "refresh";
 
@@ -53,6 +54,7 @@ public class JwtService {
                 .claims(Map.of(
                         "orgId", principal.getOrgId().toString(),
                         "role", "ORG_ADMIN",
+                        SESSION_ID_CLAIM, principal.getCurrentAuthSessionId(),
                         TOKEN_TYPE_CLAIM, tokenType))
                 .subject(principal.getEmail())
                 .issuedAt(Date.from(now))
@@ -81,6 +83,7 @@ public class JwtService {
         String username = extractUsername(token);
         return username.equals(userDetails.getUsername())
                 && expectedTokenType.equals(extractTokenType(token))
+                && isCurrentSession(token, userDetails)
                 && !isTokenExpired(token);
     }
 
@@ -94,6 +97,19 @@ public class JwtService {
 
     private String extractTokenType(String token) {
         return extractAllClaims(token).get(TOKEN_TYPE_CLAIM, String.class);
+    }
+
+    private String extractSessionId(String token) {
+        return extractAllClaims(token).get(SESSION_ID_CLAIM, String.class);
+    }
+
+    private boolean isCurrentSession(String token, UserDetails userDetails) {
+        if (!(userDetails instanceof OrganizationPrincipal principal)) {
+            return false;
+        }
+
+        String tokenSessionId = extractSessionId(token);
+        return tokenSessionId != null && tokenSessionId.equals(principal.getCurrentAuthSessionId());
     }
 
     private boolean isTokenExpired(String token) {

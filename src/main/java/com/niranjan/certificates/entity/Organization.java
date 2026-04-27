@@ -36,6 +36,9 @@ public class Organization {
     @Column(name = "logo_url")
     private String logoUrl;
 
+    @Column(name = "current_auth_session_id")
+    private String currentAuthSessionId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

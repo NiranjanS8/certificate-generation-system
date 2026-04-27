@@ -3,6 +3,7 @@ package com.niranjan.certificates.controller;
 import com.niranjan.certificates.dto.request.RefreshTokenRequest;
 import com.niranjan.certificates.dto.request.LoginRequest;
 import com.niranjan.certificates.dto.response.AuthResponse;
+import com.niranjan.certificates.security.AuthSessionService;
 import com.niranjan.certificates.security.JwtService;
 import com.niranjan.certificates.security.OrganizationPrincipal;
 import com.niranjan.certificates.security.OrganizationUserDetailsService;
@@ -28,13 +29,15 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final OrganizationUserDetailsService userDetailsService;
+    private final AuthSessionService authSessionService;
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
         OrganizationPrincipal principal = (OrganizationPrincipal) authentication.getPrincipal();
-        return ResponseEntity.ok(buildAuthResponse(principal));
+        OrganizationPrincipal rotatedPrincipal = authSessionService.rotateSession(principal);
+        return ResponseEntity.ok(buildAuthResponse(rotatedPrincipal));
     }
 
     @PostMapping("/refresh")
@@ -47,7 +50,8 @@ public class AuthController {
             }
 
             OrganizationPrincipal principal = (OrganizationPrincipal) userDetails;
-            return ResponseEntity.ok(buildAuthResponse(principal));
+            OrganizationPrincipal rotatedPrincipal = authSessionService.rotateSession(principal);
+            return ResponseEntity.ok(buildAuthResponse(rotatedPrincipal));
         } catch (JwtException | IllegalArgumentException ex) {
             throw new BadCredentialsException("Invalid refresh token", ex);
         }

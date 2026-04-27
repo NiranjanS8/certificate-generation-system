@@ -16,12 +16,14 @@ public class OrganizationPrincipal implements UserDetails {
     private final UUID orgId;
     private final String email;
     private final String password;
+    private final String currentAuthSessionId;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public OrganizationPrincipal(Organization organization) {
         this.orgId = organization.getId();
         this.email = organization.getEmail();
         this.password = organization.getPasswordHash();
+        this.currentAuthSessionId = organization.getCurrentAuthSessionId();
         this.authorities = List.of(new SimpleGrantedAuthority("ROLE_ORG_ADMIN"));
     }
 
