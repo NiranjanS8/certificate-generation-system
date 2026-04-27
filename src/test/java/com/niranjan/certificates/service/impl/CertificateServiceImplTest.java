@@ -80,12 +80,61 @@ class CertificateServiceImplTest {
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(organization));
         when(recipientRepository.findByIdAndOrganizationId(recipientId, orgId)).thenReturn(Optional.of(recipient));
         when(signatoryRepository.findByIdAndOrganizationId(signatoryId, orgId)).thenReturn(Optional.of(signatory));
-        when(certificateRepository.existsByOrganizationIdAndRecipientIdAndRecipientCourseId(
-                orgId, recipientId, courseId)).thenReturn(true);
+        when(certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipientId)).thenReturn(true);
 
         CertificateRequest request = new CertificateRequest(recipientId, signatoryId, "Certificate of Completion");
 
         assertThrows(DuplicateResourceException.class, () -> service.generate(orgId, request));
+
+        verify(pdfService, never()).generateCertificate(
+                any(),
+                any(),
+                any(),
+                anyString(),
+                anyString());
+    }
+
+    @Test
+    void generateRejectsInactiveCourse() {
+        UUID orgId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        UUID recipientId = UUID.randomUUID();
+        UUID signatoryId = UUID.randomUUID();
+
+        Organization organization = Organization.builder()
+                .id(orgId)
+                .name("Acme")
+                .build();
+
+        Course course = Course.builder()
+                .id(courseId)
+                .organization(organization)
+                .name("Archived Course")
+                .isActive(false)
+                .build();
+
+        Recipient recipient = Recipient.builder()
+                .id(recipientId)
+                .organization(organization)
+                .course(course)
+                .fullName("John Doe")
+                .score(95)
+                .completionDate(LocalDate.now())
+                .build();
+
+        Signatory signatory = Signatory.builder()
+                .id(signatoryId)
+                .organization(organization)
+                .name("Dr. Sarah Johnson")
+                .build();
+
+        when(organizationRepository.findById(orgId)).thenReturn(Optional.of(organization));
+        when(recipientRepository.findByIdAndOrganizationId(recipientId, orgId)).thenReturn(Optional.of(recipient));
+        when(signatoryRepository.findByIdAndOrganizationId(signatoryId, orgId)).thenReturn(Optional.of(signatory));
+
+        CertificateRequest request = new CertificateRequest(recipientId, signatoryId, "Certificate of Completion");
+
+        assertThrows(IllegalArgumentException.class, () -> service.generate(orgId, request));
 
         verify(pdfService, never()).generateCertificate(
                 any(),

@@ -14,6 +14,7 @@ import com.niranjan.certificates.repository.SignatoryRepository;
 import com.niranjan.certificates.service.CertificateService;
 import com.niranjan.certificates.service.PdfService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +53,10 @@ public class CertificateServiceImpl implements CertificateService {
 
         // Score eligibility check against course minimum score
         Course course = recipient.getCourse();
+        if (Boolean.FALSE.equals(course.getIsActive())) {
+            throw new IllegalArgumentException("Cannot generate certificate for inactive course: " + course.getName());
+        }
+
         if (course.getMinScore() != null && course.getMinScore() > 0) {
             int recipientScore = recipient.getScore() != null ? recipient.getScore() : 0;
             if (recipientScore < course.getMinScore()) {
@@ -60,11 +65,8 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
 
-        if (certificateRepository.existsByOrganizationIdAndRecipientIdAndRecipientCourseId(
-                orgId, recipient.getId(), course.getId())) {
-            throw new DuplicateResourceException(String.format(
-                    "Certificate already exists for recipient '%s' and course '%s'",
-                    recipient.getFullName(), course.getName()));
+        if (certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {
+            throw duplicateCertificateException(recipient, course);
         }
 
         // Generate unique code: CERT-XXXXXX
@@ -85,8 +87,16 @@ public class CertificateServiceImpl implements CertificateService {
                 .status(CertificateStatus.ISSUED)
                 .build();
 
-        Certificate saved = certificateRepository.save(certificate);
-        return mapToResponse(saved);
+        try {
+            Certificate saved = certificateRepository.save(certificate);
+            return mapToResponse(saved);
+        } catch (DataIntegrityViolationException ex) {
+            deleteGeneratedPdf(filePath);
+            throw duplicateCertificateException(recipient, course);
+        } catch (RuntimeException ex) {
+            deleteGeneratedPdf(filePath);
+            throw ex;
+        }
     }
 
     @Override
@@ -157,6 +167,23 @@ public class CertificateServiceImpl implements CertificateService {
             code = sb.toString();
         } while (certificateRepository.existsByUniqueCode(code));
         return code;
+    }
+
+    private DuplicateResourceException duplicateCertificateException(Recipient recipient, Course course) {
+        return new DuplicateResourceException(String.format(
+                "Certificate already exists for recipient '%s' and course '%s'",
+                recipient.getFullName(), course.getName()));
+    }
+
+    private void deleteGeneratedPdf(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(Paths.get(filePath));
+        } catch (IOException ignored) {
+            // Best effort cleanup after a failed transaction.
+        }
     }
 
     private CertificateResponse mapToResponse(Certificate certificate) {
