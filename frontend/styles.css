@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter+Tight:wght@700;800;900&family=Inter:wght@400;500;700;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,8 +6,9 @@
 
 :root {
   color-scheme: dark;
+  font-size: 100%;
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  background: #0a0a0a;
+  background: #000000;
 }
 
 * {
@@ -18,13 +19,13 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #0a0a0a;
+  background: #000000;
 }
 
 button,
 input,
 select {
-  border-radius: 0;
+  border-radius: 0.25rem;
 }
 
 button {
@@ -35,11 +36,47 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.noise {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+.themed-input,
+.themed-select {
+  color-scheme: dark;
+}
+
+.themed-select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #739ec9 50%),
+    linear-gradient(135deg, #739ec9 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 13px) 50%;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2.25rem;
+}
+
+.themed-select option {
+  background: #0a0a0a;
+  color: #ffe8db;
+}
+
+.themed-input[type="date"] {
+  min-height: 2.375rem;
+}
+
+.themed-input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(68%) sepia(17%) saturate(1146%) hue-rotate(171deg) brightness(87%) contrast(86%);
+  opacity: 1;
+}
+
+.themed-input[type="date"]::-webkit-datetime-edit,
+.themed-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  color: #ffe8db;
 }
 
 ::selection {
-  background: #ff3d00;
-  color: #fafafa;
+  background: #5682b1;
+  color: #000000;
 }
