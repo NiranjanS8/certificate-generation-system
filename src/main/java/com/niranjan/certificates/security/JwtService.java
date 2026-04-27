@@ -18,25 +18,45 @@ import java.util.Map;
 @Service
 public class JwtService {
 
+    private static final String TOKEN_TYPE_CLAIM = "tokenType";
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
+
     private final SecretKey signingKey;
-    private final long expirationSeconds;
+    private final long accessExpirationSeconds;
+    private final long refreshExpirationSeconds;
 
     public JwtService(
             @Value("${app.security.jwt.secret}") String secret,
-            @Value("${app.security.jwt.expiration-seconds}") long expirationSeconds) {
+            @Value("${app.security.jwt.expiration-seconds}") long accessExpirationSeconds,
+            @Value("${app.security.jwt.refresh-expiration-seconds}") long refreshExpirationSeconds) {
         this.signingKey = Keys.hmacShaKeyFor(sha256(secret));
-        this.expirationSeconds = expirationSeconds;
+        this.accessExpirationSeconds = accessExpirationSeconds;
+        this.refreshExpirationSeconds = refreshExpirationSeconds;
+    }
+
+    public String generateAccessToken(OrganizationPrincipal principal) {
+        return generateToken(principal, ACCESS_TOKEN_TYPE, accessExpirationSeconds);
+    }
+
+    public String generateRefreshToken(OrganizationPrincipal principal) {
+        return generateToken(principal, REFRESH_TOKEN_TYPE, refreshExpirationSeconds);
     }
 
     public String generateToken(OrganizationPrincipal principal) {
+        return generateAccessToken(principal);
+    }
+
+    private String generateToken(OrganizationPrincipal principal, String tokenType, long expiresInSeconds) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .claims(Map.of(
                         "orgId", principal.getOrgId().toString(),
-                        "role", "ORG_ADMIN"))
+                        "role", "ORG_ADMIN",
+                        TOKEN_TYPE_CLAIM, tokenType))
                 .subject(principal.getEmail())
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusSeconds(expirationSeconds)))
+                .expiration(Date.from(now.plusSeconds(expiresInSeconds)))
                 .signWith(signingKey)
                 .compact();
     }
@@ -46,12 +66,34 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
+        return isAccessTokenValid(token, userDetails);
+    }
+
+    public boolean isAccessTokenValid(String token, UserDetails userDetails) {
+        return isTokenValid(token, userDetails, ACCESS_TOKEN_TYPE);
+    }
+
+    public boolean isRefreshTokenValid(String token, UserDetails userDetails) {
+        return isTokenValid(token, userDetails, REFRESH_TOKEN_TYPE);
+    }
+
+    private boolean isTokenValid(String token, UserDetails userDetails, String expectedTokenType) {
         String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        return username.equals(userDetails.getUsername())
+                && expectedTokenType.equals(extractTokenType(token))
+                && !isTokenExpired(token);
     }
 
     public long getExpirationSeconds() {
-        return expirationSeconds;
+        return accessExpirationSeconds;
+    }
+
+    public long getRefreshExpirationSeconds() {
+        return refreshExpirationSeconds;
+    }
+
+    private String extractTokenType(String token) {
+        return extractAllClaims(token).get(TOKEN_TYPE_CLAIM, String.class);
     }
 
     private boolean isTokenExpired(String token) {
