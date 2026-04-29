@@ -7,6 +7,8 @@ import {
   BookOpen,
   CheckCircle,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eye,
   FileText,
@@ -1916,7 +1918,19 @@ function FileUpload({ label, accept, onFileSelect, preview }) {
   );
 }
 
-function Table({ columns, data, renderRow, emptyMessage = "No data available" }) {
+function Table({ columns, data, renderRow, emptyMessage = "No data available", pageSize = 10 }) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const pageStart = (page - 1) * pageSize;
+  const visibleRows = data.slice(pageStart, pageStart + pageSize);
+  const showingStart = data.length === 0 ? 0 : pageStart + 1;
+  const showingEnd = Math.min(pageStart + pageSize, data.length);
+  const canPaginate = data.length > pageSize;
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
+
   if (data.length === 0) {
     return (
       <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a]">
@@ -1928,19 +1942,39 @@ function Table({ columns, data, renderRow, emptyMessage = "No data available" })
   }
 
   return (
-    <div className="overflow-x-auto rounded border border-[#2a2a2a] bg-[#0a0a0a]">
-      <table className="w-full min-w-[760px]">
-        <thead className="border-b border-[#2a2a2a] bg-[#1a1a1a]">
-          <tr>
-            {columns.map((column) => (
-              <th key={column.key} className="px-4 py-3 text-left text-xs uppercase tracking-wider text-[#9a9a9a]" style={{ width: column.width }}>
-                {column.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[#2a2a2a]">{data.map((item, index) => renderRow(item, index))}</tbody>
-      </table>
+    <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a]">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px]">
+          <thead className="border-b border-[#2a2a2a] bg-[#1a1a1a]">
+            <tr>
+              {columns.map((column) => (
+                <th key={column.key} className="px-4 py-3 text-left text-xs uppercase tracking-wider text-[#9a9a9a]" style={{ width: column.width }}>
+                  {column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#2a2a2a]">{visibleRows.map((item, index) => renderRow(item, pageStart + index))}</tbody>
+        </table>
+      </div>
+      {canPaginate && (
+        <div className="flex flex-col gap-3 border-t border-[#2a2a2a] px-4 py-3 text-xs text-[#9a9a9a] sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Showing <span className="text-[#FFE8DB]">{showingStart}-{showingEnd}</span> of <span className="text-[#FFE8DB]">{data.length}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <span className="min-w-16 text-center text-[#FFE8DB]">Page {page} / {totalPages}</span>
+            <Button variant="secondary" size="sm" disabled={page === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
