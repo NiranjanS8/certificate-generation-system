@@ -12,6 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.UUID;
 
 @Service
@@ -66,6 +70,38 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         Organization saved = organizationRepository.save(org);
         return mapToResponse(saved);
+    }
+
+    @Override
+    public byte[] getLogoImage(UUID orgId) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+        Path path = getLogoPath(org);
+        try {
+            return Files.readAllBytes(path);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read logo image file", e);
+        }
+    }
+
+    @Override
+    public String getLogoContentType(UUID orgId) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+        Path path = getLogoPath(org);
+        try {
+            String contentType = Files.probeContentType(path);
+            return contentType != null ? contentType : "application/octet-stream";
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to inspect logo image file", e);
+        }
+    }
+
+    private Path getLogoPath(Organization org) {
+        if (org.getLogoUrl() == null || org.getLogoUrl().isBlank()) {
+            throw new ResourceNotFoundException("Logo", "organizationId", org.getId());
+        }
+        return Paths.get(org.getLogoUrl());
     }
 
     private OrganizationResponse mapToResponse(Organization org) {

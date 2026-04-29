@@ -15,5 +15,8 @@ public interface OrganizationService {
     OrganizationResponse updateProfile(UUID orgId, UpdateOrgRequest request);
 
     OrganizationResponse updateLogo(UUID orgId, String logoUrl);
-}
 
+    byte[] getLogoImage(UUID orgId);
+
+    String getLogoContentType(UUID orgId);
+}

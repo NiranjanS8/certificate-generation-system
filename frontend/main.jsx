@@ -1527,8 +1527,40 @@ function SettingsPanel({ data, session, refresh }) {
   const [saving, setSaving] = useState(false);
   const [logoName, setLogoName] = useState("");
   const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState("");
   const [message, setMessage] = useState("");
   const profile = data.profile || {};
+
+  useEffect(() => {
+    let objectUrl = "";
+    let cancelled = false;
+
+    async function loadLogoPreview() {
+      setLogoPreview("");
+      if (logoFile) {
+        objectUrl = URL.createObjectURL(logoFile);
+        if (!cancelled) setLogoPreview(objectUrl);
+        return;
+      }
+      if (!profile.logoUrl) return;
+
+      try {
+        const blob = await api("/api/org/logo", {}, session);
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setLogoPreview(objectUrl);
+      } catch {
+        if (!cancelled) setLogoPreview("");
+      }
+    }
+
+    loadLogoPreview();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [profile.logoUrl, logoFile, session.token]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -1581,10 +1613,18 @@ function SettingsPanel({ data, session, refresh }) {
             <div className="mt-4" />
             <FormField label="Website"><Input name="website" type="url" defaultValue={profile.website} /></FormField>
             <div className="mt-4">
+              {logoPreview && (
+                <div className="mb-4 rounded border border-[#2a2a2a] bg-[#1a1a1a] p-4">
+                  <p className="mb-3 text-xs uppercase tracking-wider text-[#9a9a9a]">{logoFile ? "Selected Logo Preview" : "Current Logo"}</p>
+                  <div className="flex h-24 items-center justify-center rounded border border-[#2a2a2a] bg-[#FFE8DB] p-3">
+                    <img src={logoPreview} alt={`${profile.name || "Organization"} logo`} className="max-h-full max-w-full object-contain" />
+                  </div>
+                </div>
+              )}
               <FileUpload label="Organization Logo" accept="image/png,image/jpeg,image/webp" onFileSelect={(file) => {
                 setLogoFile(file || null);
                 setLogoName(file?.name || "");
-              }} />
+              }} preview={logoFile ? logoPreview : undefined} />
               <p className="mt-2 text-xs text-[#9a9a9a]">This logo will appear on all generated certificates</p>
               {logoName && <p className="mt-1 text-xs text-[#739EC9]">{logoName}</p>}
             </div>
