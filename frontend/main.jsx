@@ -418,7 +418,7 @@ function Workspace({ currentPage, setCurrentPage, data, loading, session, refres
   );
 
   if (currentPage === "dashboard") return <Dashboard data={model} loading={loading} onNavigate={setCurrentPage} />;
-  if (currentPage === "recipients") return <Recipients data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
+  if (currentPage === "recipients") return <Recipients data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} confirmAction={confirmAction} />;
   if (currentPage === "courses") return <Courses data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
   if (currentPage === "signatories") return <Signatories data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
   if (currentPage === "certificates") return <Certificates data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} confirmAction={confirmAction} />;
@@ -493,7 +493,7 @@ function Dashboard({ data, loading, onNavigate }) {
   );
 }
 
-function Recipients({ data, session, refresh, confirmAction }) {
+function Recipients({ data, session, refresh, onViewCertificate, confirmAction }) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -628,6 +628,25 @@ function Recipients({ data, session, refresh, confirmAction }) {
     setMessage("");
   }
 
+  function viewCertificate(certificateId) {
+    setOpenMenuId(null);
+    setShowForm(false);
+    setEditingRecipient(null);
+    setGeneratingFor(null);
+    setMessage("");
+    onViewCertificate(certificateId);
+  }
+
+  const certificateByRecipientId = useMemo(() => {
+    const lookup = new Map();
+    data.certificates.forEach((certificate) => {
+      if (certificate.recipientId && !lookup.has(String(certificate.recipientId))) {
+        lookup.set(String(certificate.recipientId), certificate);
+      }
+    });
+    return lookup;
+  }, [data.certificates]);
+
   const rows = filterRows(data.recipients, searchQuery, ["fullName", "email", "courseName"]);
   const columns = [
     { key: "name", label: "Full Name", width: "20%" },
@@ -702,27 +721,33 @@ function Recipients({ data, session, refresh, confirmAction }) {
       <Table
         columns={columns}
         data={rows}
-        renderRow={(recipient) => (
-          <tr key={recipient.id} className="transition-colors hover:bg-[#1a1a1a]">
-            <td className="px-4 py-3 text-sm text-[#FFE8DB]">{recipient.fullName}</td>
-            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{recipient.email}</td>
-            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{recipient.courseName || courseName(data.courses, recipient.courseId)}</td>
-            <td className="px-4 py-3 text-sm text-[#FFE8DB]">{recipient.score}</td>
-            <td className="px-4 py-3 text-sm text-[#FFE8DB]">{recipient.grade}</td>
-            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{formatDate(recipient.completionDate)}</td>
-            <td className="px-4 py-3">
-              <RowActionMenu
-                open={openMenuId === recipient.id}
-                onToggle={() => setOpenMenuId((current) => (current === recipient.id ? null : recipient.id))}
-                onClose={() => setOpenMenuId(null)}
-                onEdit={() => startEdit(recipient)}
-                onGenerate={() => startGenerate(recipient)}
-                onDelete={() => handleDelete(recipient)}
-                disabled={busyRecipientId === recipient.id}
-              />
-            </td>
-          </tr>
-        )}
+        renderRow={(recipient) => {
+          const certificate = certificateByRecipientId.get(String(recipient.id));
+          return (
+            <tr key={recipient.id} className="transition-colors hover:bg-[#1a1a1a]">
+              <td className="px-4 py-3 text-sm text-[#FFE8DB]">{recipient.fullName}</td>
+              <td className="px-4 py-3 text-sm text-[#9a9a9a]">{recipient.email}</td>
+              <td className="px-4 py-3 text-sm text-[#9a9a9a]">{recipient.courseName || courseName(data.courses, recipient.courseId)}</td>
+              <td className="px-4 py-3 text-sm text-[#FFE8DB]">{recipient.score}</td>
+              <td className="px-4 py-3 text-sm text-[#FFE8DB]">{recipient.grade}</td>
+              <td className="px-4 py-3 text-sm text-[#9a9a9a]">{formatDate(recipient.completionDate)}</td>
+              <td className="px-4 py-3">
+                <RowActionMenu
+                  open={openMenuId === recipient.id}
+                  onToggle={() => setOpenMenuId((current) => (current === recipient.id ? null : recipient.id))}
+                  onClose={() => setOpenMenuId(null)}
+                  onEdit={() => startEdit(recipient)}
+                  onGenerate={certificate ? undefined : () => startGenerate(recipient)}
+                  onSecondaryAction={certificate ? () => viewCertificate(certificate.id) : undefined}
+                  secondaryActionLabel={certificate ? "View certificate" : "Generate certificate"}
+                  secondaryActionIcon={certificate ? Eye : Award}
+                  onDelete={() => handleDelete(recipient)}
+                  disabled={busyRecipientId === recipient.id}
+                />
+              </td>
+            </tr>
+          );
+        }}
       />
     </div>
   );
@@ -1300,9 +1325,22 @@ function Generate({ data, session, refresh, onViewCertificate }) {
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState("");
   const [generatedCertificate, setGeneratedCertificate] = useState(null);
+  const certificateRecipientIds = useMemo(
+    () => new Set(data.certificates.map((certificate) => String(certificate.recipientId)).filter(Boolean)),
+    [data.certificates],
+  );
+  const availableRecipients = useMemo(
+    () => data.recipients.filter((recipient) => !certificateRecipientIds.has(String(recipient.id))),
+    [data.recipients, certificateRecipientIds],
+  );
+  const hasAvailableRecipients = availableRecipients.length > 0;
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!hasAvailableRecipients) {
+      setMessage("All recipients already have certificates.");
+      return;
+    }
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     setGenerating(true);
@@ -1344,7 +1382,8 @@ function Generate({ data, session, refresh, onViewCertificate }) {
                 required
                 searchable
                 searchPlaceholder="Search recipients..."
-                options={[{ value: "", label: "Select a recipient" }, ...data.recipients.map((recipient) => ({ value: recipient.id, label: `${recipient.fullName} - ${recipient.courseName || recipient.email}` }))]}
+                disabled={!hasAvailableRecipients}
+                options={[{ value: "", label: hasAvailableRecipients ? "Select a recipient" : "No recipients available" }, ...availableRecipients.map((recipient) => ({ value: recipient.id, label: `${recipient.fullName} - ${recipient.courseName || recipient.email}` }))]}
               />
             </FormField>
             <FormField label="Certificate Title" required><Input name="certificateTitle" placeholder="Certificate of Completion" required /></FormField>
@@ -1365,7 +1404,7 @@ function Generate({ data, session, refresh, onViewCertificate }) {
               </div>
             )}
             <div className="mt-6">
-              <Button type="submit" variant="primary" disabled={generating}>
+              <Button type="submit" variant="primary" disabled={generating || !hasAvailableRecipients}>
                 {generating ? "Generating Certificate..." : "Generate Certificate"}
               </Button>
             </div>
