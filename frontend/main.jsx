@@ -49,12 +49,17 @@ async function api(path, options = {}, session = emptySession) {
   };
 
   const response = await fetch(path, { ...options, headers });
+  const contentType = response.headers.get("content-type") || "";
   if (!response.ok) {
+    if (contentType.includes("application/json")) {
+      const payload = await response.json();
+      const fieldErrors = payload.errors ? Object.values(payload.errors).join(" ") : "";
+      throw new Error(payload.message || payload.error || fieldErrors || `Request failed with ${response.status}`);
+    }
     const text = await response.text();
     throw new Error(text || `Request failed with ${response.status}`);
   }
   if (response.status === 204) return null;
-  const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("application/pdf") || contentType.startsWith("image/") || contentType.includes("application/octet-stream")) return response.blob();
   return response.json();
 }

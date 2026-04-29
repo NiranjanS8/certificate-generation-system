@@ -11,7 +11,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "certificates")
+@Table(
+        name = "certificates",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_certificates_org_recipient", columnNames = {"org_id", "recipient_id"})
+        }
+)
 @Data
 @Builder
 @NoArgsConstructor

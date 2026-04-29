@@ -4,6 +4,7 @@ import com.niranjan.certificates.dto.request.CertificateRequest;
 import com.niranjan.certificates.dto.response.CertificateResponse;
 import com.niranjan.certificates.dto.response.VerifyResponse;
 import com.niranjan.certificates.entity.*;
+import com.niranjan.certificates.exception.DuplicateResourceException;
 import com.niranjan.certificates.exception.IneligibleRecipientException;
 import com.niranjan.certificates.exception.ResourceNotFoundException;
 import com.niranjan.certificates.repository.CertificateRepository;
@@ -34,6 +35,8 @@ public class CertificateServiceImpl implements CertificateService {
     private final SignatoryRepository signatoryRepository;
     private final PdfService pdfService;
 
+    private static final String DUPLICATE_RECIPIENT_CERTIFICATE_MESSAGE =
+            "A certificate has already been generated for this recipient.";
     private static final String ALPHANUMERIC = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -45,6 +48,10 @@ public class CertificateServiceImpl implements CertificateService {
 
         Recipient recipient = recipientRepository.findByIdAndOrganizationId(request.getRecipientId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipient", "id", request.getRecipientId()));
+
+        if (certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {
+            throw new DuplicateResourceException(DUPLICATE_RECIPIENT_CERTIFICATE_MESSAGE);
+        }
 
         Signatory signatory = signatoryRepository.findByIdAndOrganizationId(request.getSignatoryId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", request.getSignatoryId()));
@@ -106,6 +113,10 @@ public class CertificateServiceImpl implements CertificateService {
 
         Recipient recipient = recipientRepository.findByIdAndOrganizationId(request.getRecipientId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipient", "id", request.getRecipientId()));
+
+        if (certificateRepository.existsByOrganizationIdAndRecipientIdAndIdNot(orgId, recipient.getId(), id)) {
+            throw new DuplicateResourceException(DUPLICATE_RECIPIENT_CERTIFICATE_MESSAGE);
+        }
 
         Signatory signatory = signatoryRepository.findByIdAndOrganizationId(request.getSignatoryId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", request.getSignatoryId()));
