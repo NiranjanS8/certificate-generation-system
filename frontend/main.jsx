@@ -74,6 +74,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [apiError, setApiError] = useState("");
+  const [confirmation, setConfirmation] = useState(null);
   const [data, setData] = useState({
     profile: null,
     certificates: [],
@@ -156,6 +157,17 @@ function App() {
     localStorage.removeItem(storageKey);
   }
 
+  function confirmAction(options) {
+    return new Promise((resolve) => {
+      setConfirmation({ ...options, resolve });
+    });
+  }
+
+  function closeConfirmation(confirmed) {
+    confirmation?.resolve(confirmed);
+    setConfirmation(null);
+  }
+
   if (!isAuthenticated && currentPage === "verify") {
     return <Verify onBack={() => setCurrentPage("dashboard")} />;
   }
@@ -226,9 +238,19 @@ function App() {
             session={session}
             refresh={loadWorkspace}
             onViewCertificate={setSelectedCertificate}
+            confirmAction={confirmAction}
           />
         )}
       </main>
+      <ConfirmationDialog
+        open={Boolean(confirmation)}
+        title={confirmation?.title}
+        message={confirmation?.message}
+        confirmLabel={confirmation?.confirmLabel}
+        tone={confirmation?.tone}
+        onCancel={() => closeConfirmation(false)}
+        onConfirm={() => closeConfirmation(true)}
+      />
     </div>
   );
 }
@@ -382,7 +404,7 @@ function Sidebar({ currentPage, onNavigate, profile, email, onLogout, mobileOpen
   );
 }
 
-function Workspace({ currentPage, setCurrentPage, data, loading, session, refresh, onViewCertificate }) {
+function Workspace({ currentPage, setCurrentPage, data, loading, session, refresh, onViewCertificate, confirmAction }) {
   const model = useMemo(
     () => ({
       recipients: data.recipients || [],
@@ -395,10 +417,10 @@ function Workspace({ currentPage, setCurrentPage, data, loading, session, refres
   );
 
   if (currentPage === "dashboard") return <Dashboard data={model} loading={loading} onNavigate={setCurrentPage} />;
-  if (currentPage === "recipients") return <Recipients data={model} session={session} refresh={refresh} />;
-  if (currentPage === "courses") return <Courses data={model} session={session} refresh={refresh} />;
-  if (currentPage === "signatories") return <Signatories data={model} session={session} refresh={refresh} />;
-  if (currentPage === "certificates") return <Certificates certificates={model.certificates} session={session} onViewCertificate={onViewCertificate} />;
+  if (currentPage === "recipients") return <Recipients data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
+  if (currentPage === "courses") return <Courses data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
+  if (currentPage === "signatories") return <Signatories data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
+  if (currentPage === "certificates") return <Certificates data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} confirmAction={confirmAction} />;
   if (currentPage === "generate") return <Generate data={model} session={session} refresh={refresh} />;
   return <SettingsPanel data={model} />;
 }
@@ -470,7 +492,7 @@ function Dashboard({ data, loading, onNavigate }) {
   );
 }
 
-function Recipients({ data, session, refresh }) {
+function Recipients({ data, session, refresh, confirmAction }) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -540,7 +562,13 @@ function Recipients({ data, session, refresh }) {
 
   async function handleDelete(recipient) {
     setOpenMenuId(null);
-    if (!window.confirm(`Delete ${recipient.fullName}? This cannot be undone.`)) return;
+    const confirmed = await confirmAction({
+      title: "Delete recipient",
+      message: `Delete ${recipient.fullName}? This cannot be undone.`,
+      confirmLabel: "Delete Recipient",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     setMessage("");
     setBusyRecipientId(recipient.id);
     try {
@@ -699,7 +727,7 @@ function Recipients({ data, session, refresh }) {
   );
 }
 
-function Courses({ data, session, refresh }) {
+function Courses({ data, session, refresh, confirmAction }) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -762,7 +790,13 @@ function Courses({ data, session, refresh }) {
 
   async function handleDelete(course) {
     setOpenMenuId(null);
-    if (!window.confirm(`Deactivate ${course.name}? It will no longer appear in active course lists.`)) return;
+    const confirmed = await confirmAction({
+      title: "Deactivate course",
+      message: `Deactivate ${course.name}? It will no longer appear in active course lists.`,
+      confirmLabel: "Deactivate Course",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     setMessage("");
     setBusyCourseId(course.id);
     try {
@@ -856,7 +890,7 @@ function Courses({ data, session, refresh }) {
   );
 }
 
-function Signatories({ data, session, refresh }) {
+function Signatories({ data, session, refresh, confirmAction }) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -927,7 +961,13 @@ function Signatories({ data, session, refresh }) {
 
   async function handleDelete(signatory) {
     setOpenMenuId(null);
-    if (!window.confirm(`Delete ${signatory.name}? This cannot be undone.`)) return;
+    const confirmed = await confirmAction({
+      title: "Delete signatory",
+      message: `Delete ${signatory.name}? This cannot be undone.`,
+      confirmLabel: "Delete Signatory",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     setMessage("");
     setBusySignatoryId(signatory.id);
     try {
@@ -1034,9 +1074,14 @@ function Signatories({ data, session, refresh }) {
   );
 }
 
-function Certificates({ certificates, session, onViewCertificate }) {
+function Certificates({ data, session, refresh, onViewCertificate, confirmAction }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [editingCertificate, setEditingCertificate] = useState(null);
+  const [busyCertificateId, setBusyCertificateId] = useState("");
+  const [message, setMessage] = useState("");
+  const certificates = data.certificates;
 
   const filtered = certificates.filter((cert) => {
     const status = normalizeStatus(cert.status);
@@ -1066,9 +1111,81 @@ function Certificates({ certificates, session, onViewCertificate }) {
     URL.revokeObjectURL(url);
   }
 
+  async function handleEdit(event) {
+    event.preventDefault();
+    if (!editingCertificate) return;
+    const form = new FormData(event.currentTarget);
+    setMessage("");
+    setBusyCertificateId(editingCertificate.id);
+    try {
+      await api(
+        `/api/certificates/${editingCertificate.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            recipientId: form.get("recipientId"),
+            signatoryId: form.get("signatoryId"),
+            certificateTitle: form.get("certificateTitle"),
+          }),
+        },
+        session,
+      );
+      setEditingCertificate(null);
+      await refresh();
+      setMessage("Certificate updated.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setBusyCertificateId("");
+    }
+  }
+
+  async function handleRevoke(cert) {
+    setOpenMenuId(null);
+    const confirmed = await confirmAction({
+      title: "Revoke certificate",
+      message: `Revoke certificate ${displayCertificateId(cert)}? It will no longer verify publicly.`,
+      confirmLabel: "Revoke Certificate",
+      tone: "danger",
+    });
+    if (!confirmed) return;
+    setMessage("");
+    setBusyCertificateId(cert.id);
+    try {
+      await api(`/api/certificates/${cert.id}/revoke`, { method: "PATCH" }, session);
+      await refresh();
+      setMessage("Certificate revoked.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setBusyCertificateId("");
+    }
+  }
+
+  function startEdit(cert) {
+    setOpenMenuId(null);
+    setEditingCertificate(cert);
+    setMessage("");
+  }
+
   return (
     <div>
       <PageHeader title="Certificate Registry" description="Complete registry of all issued and pending certificates" />
+      {editingCertificate && (
+        <Panel title={`Edit ${displayCertificateId(editingCertificate)}`}>
+          <form key={editingCertificate.id} onSubmit={handleEdit}>
+            <FormField label="Recipient" required>
+              <Select name="recipientId" required defaultValue={editingCertificate.recipientId} options={[{ value: "", label: "Select a recipient" }, ...data.recipients.map((recipient) => ({ value: recipient.id, label: `${recipient.fullName} - ${recipient.email}` }))]} />
+            </FormField>
+            <FormField label="Certificate Title" required><Input name="certificateTitle" defaultValue={editingCertificate.certificateTitle} required /></FormField>
+            <FormField label="Signatory" required>
+              <Select name="signatoryId" required defaultValue={editingCertificate.signatoryId} options={[{ value: "", label: "Select a signatory" }, ...data.signatories.map((signatory) => ({ value: signatory.id, label: `${signatory.name} - ${signatory.title}` }))]} />
+            </FormField>
+            <FormActions onCancel={() => setEditingCertificate(null)} submitLabel={busyCertificateId === editingCertificate.id ? "Saving..." : "Save Changes"} disabled={busyCertificateId === editingCertificate.id} />
+          </form>
+        </Panel>
+      )}
+      {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("revoked") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
       <div className="mb-4 flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9a9a]" />
@@ -1082,6 +1199,7 @@ function Certificates({ certificates, session, onViewCertificate }) {
             { value: "all", label: "All Status" },
             { value: "issued", label: "Issued" },
             { value: "pending", label: "Pending" },
+            { value: "revoked", label: "Revoked" },
           ]}
         />
       </div>
@@ -1100,7 +1218,23 @@ function Certificates({ certificates, session, onViewCertificate }) {
               <div className="flex gap-2">
                 <IconButton title="View certificate" icon={Eye} onClick={() => onViewCertificate(cert.id)} />
                 <IconButton title="Download PDF" icon={Download} onClick={() => download(cert.id, cert.uniqueCode)} />
-                <IconButton title="More actions" icon={MoreVertical} />
+                <RowActionMenu
+                  menuTitle="Certificate actions"
+                  open={openMenuId === cert.id}
+                  onToggle={() => setOpenMenuId((current) => (current === cert.id ? null : cert.id))}
+                  onClose={() => setOpenMenuId(null)}
+                  editLabel="Edit certificate"
+                  onEdit={() => startEdit(cert)}
+                  secondaryActionLabel="View certificate"
+                  secondaryActionIcon={Eye}
+                  onSecondaryAction={() => {
+                    setOpenMenuId(null);
+                    onViewCertificate(cert.id);
+                  }}
+                  deleteLabel="Revoke certificate"
+                  onDelete={() => handleRevoke(cert)}
+                  disabled={busyCertificateId === cert.id || normalizeStatus(cert.status) === "revoked"}
+                />
               </div>
             </td>
           </tr>
@@ -1376,11 +1510,56 @@ function Verify({ onBack }) {
   );
 }
 
+function ConfirmationDialog({ open, title, message, confirmLabel = "Confirm", tone = "danger", onCancel, onConfirm }) {
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") onCancel();
+      if (event.key === "Enter") onConfirm();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onCancel, onConfirm]);
+
+  if (!open) return null;
+
+  const isDanger = tone === "danger";
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" role="presentation" onMouseDown={onCancel}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirmation-title"
+        className="w-full max-w-md rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.65)]"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="mb-5 flex items-start gap-4">
+          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border ${isDanger ? "border-[#dc2626]/30 bg-[#dc2626]/10 text-[#dc2626]" : "border-[#5682B1]/30 bg-[#5682B1]/10 text-[#739EC9]"}`}>
+            <AlertCircle className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 id="confirmation-title" className="mb-2 text-lg font-medium text-[#FFE8DB]">{title}</h2>
+            <p className="text-sm leading-6 text-[#9a9a9a]">{message}</p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 border-t border-[#2a2a2a] pt-5">
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button variant={isDanger ? "danger" : "primary"} onClick={onConfirm}>{confirmLabel}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Button({ children, onClick, variant = "primary", size = "md", disabled = false, type = "button", fullWidth = false }) {
   const variants = {
     primary: "bg-[#5682B1] text-[#000000] hover:bg-[#739EC9]",
     secondary: "bg-[#1a1a1a] text-[#FFE8DB] border border-[#2a2a2a] hover:bg-[#2a2a2a]",
     ghost: "text-[#FFE8DB] hover:bg-[#1a1a1a]",
+    danger: "bg-[#dc2626] text-[#FFE8DB] hover:bg-[#b91c1c]",
   };
   const sizes = {
     sm: "px-3 py-1.5 text-xs",
@@ -1597,6 +1776,7 @@ function StatusBadge({ status }) {
     issued: "bg-[#5682B1]/20 text-[#5682B1] border-[#5682B1]/30",
     pending: "bg-[#FFE8DB]/20 text-[#FFE8DB] border-[#FFE8DB]/30",
     active: "bg-[#739EC9]/20 text-[#739EC9] border-[#739EC9]/30",
+    revoked: "bg-[#dc2626]/20 text-[#dc2626] border-[#dc2626]/30",
     inactive: "bg-[#2a2a2a] text-[#9a9a9a] border-[#2a2a2a]",
   };
   return <span className={`inline-flex rounded border px-2 py-0.5 text-xs ${styles[status] || styles.pending}`}>{capitalize(status)}</span>;
@@ -1752,6 +1932,7 @@ function filterRows(rows, query, keys) {
 function normalizeStatus(status = "pending") {
   const value = String(status).toLowerCase();
   if (value === "issued") return "issued";
+  if (value === "revoked") return "revoked";
   if (value === "active") return "active";
   if (value === "inactive") return "inactive";
   return "pending";

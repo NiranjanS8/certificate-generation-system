@@ -99,6 +99,50 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Transactional
+    public CertificateResponse update(UUID orgId, UUID id, CertificateRequest request) {
+        Certificate certificate = certificateRepository.findByIdAndOrganizationId(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Certificate", "id", id));
+
+        Recipient recipient = recipientRepository.findByIdAndOrganizationId(request.getRecipientId(), orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recipient", "id", request.getRecipientId()));
+
+        Signatory signatory = signatoryRepository.findByIdAndOrganizationId(request.getSignatoryId(), orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", request.getSignatoryId()));
+
+        Course course = recipient.getCourse();
+        if (course.getMinScore() != null && course.getMinScore() > 0) {
+            int recipientScore = recipient.getScore() != null ? recipient.getScore() : 0;
+            if (recipientScore < course.getMinScore()) {
+                throw new IneligibleRecipientException(
+                        recipient.getFullName(), recipientScore, course.getMinScore(), course.getName());
+            }
+        }
+
+        String filePath = pdfService.generateCertificate(certificate.getOrganization(), recipient, signatory,
+                request.getCertificateTitle(), certificate.getUniqueCode());
+
+        certificate.setRecipient(recipient);
+        certificate.setSignatory(signatory);
+        certificate.setCertificateTitle(request.getCertificateTitle());
+        certificate.setFileUrl(filePath);
+
+        Certificate saved = certificateRepository.save(certificate);
+        return mapToResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public CertificateResponse revoke(UUID orgId, UUID id) {
+        Certificate certificate = certificateRepository.findByIdAndOrganizationId(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Certificate", "id", id));
+
+        certificate.setStatus(CertificateStatus.REVOKED);
+        Certificate saved = certificateRepository.save(certificate);
+        return mapToResponse(saved);
+    }
+
+    @Override
     public byte[] downloadPdf(UUID orgId, UUID id) {
         Certificate certificate = certificateRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Certificate", "id", id));
