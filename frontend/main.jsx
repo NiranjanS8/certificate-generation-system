@@ -7,7 +7,6 @@ import {
   BookOpen,
   CheckCircle,
   ChevronDown,
-  Clock,
   Download,
   Eye,
   FileText,
@@ -54,7 +53,7 @@ async function api(path, options = {}, session = emptySession) {
   }
   if (response.status === 204) return null;
   const contentType = response.headers.get("content-type") || "";
-  if (contentType.includes("application/pdf")) return response.blob();
+  if (contentType.includes("application/pdf") || contentType.startsWith("image/") || contentType.includes("application/octet-stream")) return response.blob();
   return response.json();
 }
 
@@ -296,8 +295,6 @@ function Login({ error, loading, onSubmit, onNavigateToRegister, onNavigateToVer
 }
 
 function Register({ error, loading, onSubmit, onNavigateToLogin }) {
-  const [logoName, setLogoName] = useState("");
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#000000] p-4">
       <div className="w-full max-w-2xl">
@@ -322,10 +319,6 @@ function Register({ error, loading, onSubmit, onNavigateToLogin }) {
               <FormField label="Password" required>
                 <Input name="password" type="password" placeholder="Password" required />
               </FormField>
-            </div>
-            <div className="mt-4">
-              <FileUpload label="Organization Logo" accept="image/png,image/jpeg" onFileSelect={(file) => setLogoName(file?.name || "")} />
-              {logoName && <p className="mt-2 text-xs text-[#9a9a9a]">{logoName}</p>}
             </div>
             {error && <p className="mt-4 text-xs text-[#dc2626]">{error}</p>}
             <div className="mt-6 flex gap-3">
@@ -422,13 +415,13 @@ function Workspace({ currentPage, setCurrentPage, data, loading, session, refres
   if (currentPage === "signatories") return <Signatories data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
   if (currentPage === "certificates") return <Certificates data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} confirmAction={confirmAction} />;
   if (currentPage === "generate") return <Generate data={model} session={session} refresh={refresh} />;
-  return <SettingsPanel data={model} />;
+  return <SettingsPanel data={model} session={session} refresh={refresh} />;
 }
 
 function Dashboard({ data, loading, onNavigate }) {
   const recentCertificates = data.certificates.slice(0, 5);
   const issued = data.certificates.filter((cert) => cert.status === "ISSUED" || cert.status === "issued").length;
-  const pending = data.certificates.length - issued;
+  const revoked = data.certificates.filter((cert) => cert.status === "REVOKED" || cert.status === "revoked").length;
   const issuedThisWeek = data.certificates.filter((cert) => {
     if (!(cert.status === "ISSUED" || cert.status === "issued") || !cert.issuedAt) return false;
     const issuedAt = new Date(cert.issuedAt);
@@ -453,7 +446,7 @@ function Dashboard({ data, loading, onNavigate }) {
       <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total Certificates" value={formatNumber(data.certificates.length)} icon={<FileText className="h-4 w-4" />} />
         <MetricCard label="Active Recipients" value={formatNumber(data.recipients.length)} icon={<Users className="h-4 w-4" />} />
-        <MetricCard label="Pending Certificates" value={formatNumber(pending)} icon={<Clock className="h-4 w-4" />} />
+        <MetricCard label="Revoked Certificates" value={formatNumber(revoked)} icon={<AlertCircle className="h-4 w-4" />} />
         <MetricCard label="Issued This Week" value={formatNumber(issuedThisWeek)} icon={<Award className="h-4 w-4" />} />
       </div>
 
@@ -828,9 +821,8 @@ function Courses({ data, session, refresh, confirmAction }) {
     return counts;
   }, [data.recipients]);
   const columns = [
-    { key: "name", label: "Course Name", width: "25%" },
-    { key: "description", label: "Description", width: "35%" },
-    { key: "duration", label: "Duration", width: "12%" },
+    { key: "name", label: "Course Name", width: "28%" },
+    { key: "description", label: "Description", width: "44%" },
     { key: "score", label: "Min. Score", width: "12%" },
     { key: "enrolled", label: "Enrolled", width: "11%" },
     { key: "actions", label: "", width: "5%" },
@@ -848,10 +840,7 @@ function Courses({ data, session, refresh, confirmAction }) {
           <form onSubmit={handleSubmit}>
             <FormField label="Course Name" required><Input name="name" placeholder="Web Development Fundamentals" required /></FormField>
             <FormField label="Description" required><Textarea name="description" rows={3} placeholder="Comprehensive introduction to web development..." required /></FormField>
-            <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Duration"><Input name="duration" placeholder="12 weeks" /></FormField>
-              <FormField label="Eligibility Score" required><Input name="minScore" type="number" placeholder="70" required /></FormField>
-            </div>
+            <FormField label="Eligibility Score" required><Input name="minScore" type="number" placeholder="70" required /></FormField>
             {message && <p className="mt-4 text-xs text-[#dc2626]">{message}</p>}
             <FormActions onCancel={() => setShowForm(false)} submitLabel="Add Course" />
           </form>
@@ -876,8 +865,7 @@ function Courses({ data, session, refresh, confirmAction }) {
           <tr key={course.id} className="transition-colors hover:bg-[#1a1a1a]">
             <td className="px-4 py-3 text-sm text-[#FFE8DB]">{course.name}</td>
             <td className="px-4 py-3 text-sm text-[#9a9a9a]">{course.description}</td>
-            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{course.duration || "--"}</td>
-            <td className="px-4 py-3 text-sm text-[#FFE8DB]">{course.minScore ?? course.eligibilityScore ?? "--"}</td>
+            <td className="px-4 py-3 text-sm text-[#FFE8DB]">{course.minScore ?? "--"}</td>
             <td className="px-4 py-3 text-sm text-[#9a9a9a]">{enrolledByCourseId.get(String(course.id)) || 0}</td>
             <td className="px-4 py-3">
               <RowActionMenu
@@ -904,6 +892,7 @@ function Signatories({ data, session, refresh, confirmAction }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
   const [signatureName, setSignatureName] = useState("");
+  const [signatureFile, setSignatureFile] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [editingSignatory, setEditingSignatory] = useState(null);
   const [editSignatureFile, setEditSignatureFile] = useState(null);
@@ -913,8 +902,9 @@ function Signatories({ data, session, refresh, confirmAction }) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setMessage("");
+    setBusySignatoryId("new");
     try {
-      await api(
+      const signatory = await api(
         "/api/signatories",
         {
           method: "POST",
@@ -922,10 +912,27 @@ function Signatories({ data, session, refresh, confirmAction }) {
         },
         session,
       );
+      if (signatureFile) {
+        const signatureForm = new FormData();
+        signatureForm.append("file", signatureFile);
+        await api(
+          `/api/signatories/${signatory.id}/signature`,
+          {
+            method: "POST",
+            body: signatureForm,
+          },
+          session,
+        );
+      }
       setShowForm(false);
-      refresh();
+      setSignatureFile(null);
+      setSignatureName("");
+      await refresh();
+      setMessage("Signatory added.");
     } catch (error) {
       setMessage(readError(error));
+    } finally {
+      setBusySignatoryId("");
     }
   }
 
@@ -1025,6 +1032,8 @@ function Signatories({ data, session, refresh, confirmAction }) {
       <PageHeader title="Signatories" description="Manage authorized signatories for certificate validation" action={<Button onClick={() => {
         setShowForm(!showForm);
         setEditingSignatory(null);
+        setSignatureFile(null);
+        setSignatureName("");
         setEditSignatureFile(null);
         setMessage("");
       }}><Plus className="h-4 w-4" />Add Signatory</Button>} />
@@ -1036,11 +1045,18 @@ function Signatories({ data, session, refresh, confirmAction }) {
               <FormField label="Title" required><Input name="title" placeholder="Dean of Education" required /></FormField>
             </div>
             <div className="mt-4">
-              <FileUpload label="Signature Image" accept="image/png,image/jpeg" onFileSelect={(file) => setSignatureName(file?.name || "")} />
+              <FileUpload label="Signature Image" accept="image/png,image/jpeg,image/webp" onFileSelect={(file) => {
+                setSignatureFile(file || null);
+                setSignatureName(file?.name || "");
+              }} />
               {signatureName && <p className="mt-2 text-xs text-[#9a9a9a]">{signatureName}</p>}
             </div>
             {message && <p className="mt-4 text-xs text-[#dc2626]">{message}</p>}
-            <FormActions onCancel={() => setShowForm(false)} submitLabel="Add Signatory" />
+            <FormActions onCancel={() => {
+              setShowForm(false);
+              setSignatureFile(null);
+              setSignatureName("");
+            }} submitLabel={busySignatoryId === "new" ? "Adding..." : "Add Signatory"} disabled={busySignatoryId === "new"} />
           </form>
         </Panel>
       )}
@@ -1052,7 +1068,7 @@ function Signatories({ data, session, refresh, confirmAction }) {
               <FormField label="Title" required><Input name="title" defaultValue={editingSignatory.title} required /></FormField>
             </div>
             <div className="mt-4">
-              <FileUpload label="Signature Image" accept="image/png,image/jpeg" onFileSelect={(file) => setEditSignatureFile(file || null)} />
+              <FileUpload label="Signature Image" accept="image/png,image/jpeg,image/webp" onFileSelect={(file) => setEditSignatureFile(file || null)} />
               {editingSignatory.signatureUrl && !editSignatureFile && <p className="mt-2 text-xs text-[#9a9a9a]">Current signature is already uploaded.</p>}
               {editSignatureFile && <p className="mt-2 text-xs text-[#739EC9]">{editSignatureFile.name}</p>}
             </div>
@@ -1063,7 +1079,7 @@ function Signatories({ data, session, refresh, confirmAction }) {
           </form>
         </Panel>
       )}
-      {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("deleted") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
+      {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("deleted") || message.includes("added") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search signatories by name or title..." />
       <Table
         columns={columns}
@@ -1199,7 +1215,7 @@ function Certificates({ data, session, refresh, onViewCertificate, confirmAction
 
   return (
     <div>
-      <PageHeader title="Certificate Registry" description="Complete registry of all issued and pending certificates" />
+      <PageHeader title="Certificate Registry" description="Complete registry of issued and revoked certificates" />
       {editingCertificate && (
         <Panel title={`Edit ${displayCertificateId(editingCertificate)}`}>
           <form key={editingCertificate.id} onSubmit={handleEdit}>
@@ -1227,7 +1243,6 @@ function Certificates({ data, session, refresh, onViewCertificate, confirmAction
           options={[
             { value: "all", label: "All Status" },
             { value: "issued", label: "Issued" },
-            { value: "pending", label: "Pending" },
             { value: "revoked", label: "Revoked" },
           ]}
         />
@@ -1312,10 +1327,7 @@ function Generate({ data, session, refresh }) {
         <div className="mb-6 rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6">
           <form onSubmit={handleSubmit}>
             <FormField label="Recipient" required>
-              <Select name="recipientId" required options={[{ value: "", label: "Select a recipient" }, ...data.recipients.map((recipient) => ({ value: recipient.id, label: `${recipient.fullName} - ${recipient.email}` }))]} />
-            </FormField>
-            <FormField label="Course" required>
-              <Select name="courseId" required options={[{ value: "", label: "Select a course" }, ...data.courses.map((course) => ({ value: course.id, label: course.name }))]} />
+              <Select name="recipientId" required options={[{ value: "", label: "Select a recipient" }, ...data.recipients.map((recipient) => ({ value: recipient.id, label: `${recipient.fullName} - ${recipient.courseName || recipient.email}` }))]} />
             </FormField>
             <FormField label="Certificate Title" required><Input name="certificateTitle" placeholder="Certificate of Completion" required /></FormField>
             <FormField label="Signatory" required>
@@ -1335,7 +1347,7 @@ function Generate({ data, session, refresh }) {
             <div>
               <p className="mb-1 text-sm text-[#FFE8DB]">Certificate Generation Requirements</p>
               <ul className="space-y-1 text-xs text-[#9a9a9a]">
-                <li>Recipient must have completed the selected course</li>
+                <li>Recipient must have completed their assigned course</li>
                 <li>Score must meet or exceed the course eligibility threshold</li>
                 <li>All required fields must be completed</li>
                 <li>A unique verification code will be automatically generated</li>
@@ -1456,15 +1468,51 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
   );
 }
 
-function SettingsPanel({ data }) {
+function SettingsPanel({ data, session, refresh }) {
   const [saving, setSaving] = useState(false);
   const [logoName, setLogoName] = useState("");
+  const [logoFile, setLogoFile] = useState(null);
+  const [message, setMessage] = useState("");
   const profile = data.profile || {};
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    const form = new FormData(event.currentTarget);
     setSaving(true);
-    setTimeout(() => setSaving(false), 1000);
+    setMessage("");
+    try {
+      await api(
+        "/api/org/profile",
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            name: form.get("name"),
+            website: form.get("website"),
+          }),
+        },
+        session,
+      );
+      if (logoFile) {
+        const logoForm = new FormData();
+        logoForm.append("file", logoFile);
+        await api(
+          "/api/org/logo",
+          {
+            method: "POST",
+            body: logoForm,
+          },
+          session,
+        );
+      }
+      setLogoFile(null);
+      setLogoName("");
+      await refresh();
+      setMessage("Organization profile updated.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -1474,13 +1522,18 @@ function SettingsPanel({ data }) {
         <Panel title="Organization Profile">
           <form onSubmit={handleSubmit}>
             <FormField label="Organization Name" required><Input name="name" defaultValue={profile.name} required /></FormField>
-            <FormField label="Contact Email" required><Input name="email" type="email" defaultValue={profile.email} required /></FormField>
+            <Detail label="Contact Email" value={profile.email || "--"} />
+            <div className="mt-4" />
             <FormField label="Website"><Input name="website" type="url" defaultValue={profile.website} /></FormField>
             <div className="mt-4">
-              <FileUpload label="Organization Logo" accept="image/png,image/jpeg" onFileSelect={(file) => setLogoName(file?.name || "")} />
+              <FileUpload label="Organization Logo" accept="image/png,image/jpeg,image/webp" onFileSelect={(file) => {
+                setLogoFile(file || null);
+                setLogoName(file?.name || "");
+              }} />
               <p className="mt-2 text-xs text-[#9a9a9a]">This logo will appear on all generated certificates</p>
               {logoName && <p className="mt-1 text-xs text-[#739EC9]">{logoName}</p>}
             </div>
+            {message && <p className={`mt-4 text-xs ${message.includes("updated") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
             <div className="mt-6 border-t border-[#2a2a2a] pt-6">
               <Button type="submit" variant="primary" disabled={saving}>{saving ? "Saving Changes..." : "Save Changes"}</Button>
             </div>
@@ -1844,12 +1897,11 @@ function Table({ columns, data, renderRow, emptyMessage = "No data available" })
 function StatusBadge({ status }) {
   const styles = {
     issued: "bg-[#5682B1]/20 text-[#5682B1] border-[#5682B1]/30",
-    pending: "bg-[#FFE8DB]/20 text-[#FFE8DB] border-[#FFE8DB]/30",
     active: "bg-[#739EC9]/20 text-[#739EC9] border-[#739EC9]/30",
     revoked: "bg-[#dc2626]/20 text-[#dc2626] border-[#dc2626]/30",
     inactive: "bg-[#2a2a2a] text-[#9a9a9a] border-[#2a2a2a]",
   };
-  return <span className={`inline-flex rounded border px-2 py-0.5 text-xs ${styles[status] || styles.pending}`}>{capitalize(status)}</span>;
+  return <span className={`inline-flex rounded border px-2 py-0.5 text-xs ${styles[status] || styles.inactive}`}>{capitalize(status)}</span>;
 }
 
 function Panel({ title, children }) {
@@ -1972,8 +2024,6 @@ function SignaturePreview({ signatory, session }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!signatory.signatureUrl) return undefined;
-
     let objectUrl = "";
     let cancelled = false;
 
@@ -1996,9 +2046,9 @@ function SignaturePreview({ signatory, session }) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [signatory.id, signatory.signatureUrl, session.token]);
+  }, [signatory.id, session.token]);
 
-  if (!signatory.signatureUrl || failed) {
+  if (failed) {
     return (
       <div className="flex h-10 w-36 items-center justify-center rounded border border-[#2a2a2a] bg-[#1a1a1a]">
         <span className="text-xs text-[#9a9a9a]">No signature</span>
@@ -2053,13 +2103,13 @@ function filterRows(rows, query, keys) {
   return rows.filter((row) => keys.some((key) => String(row[key] || "").toLowerCase().includes(normalized)));
 }
 
-function normalizeStatus(status = "pending") {
+function normalizeStatus(status = "issued") {
   const value = String(status).toLowerCase();
   if (value === "issued") return "issued";
   if (value === "revoked") return "revoked";
   if (value === "active") return "active";
   if (value === "inactive") return "inactive";
-  return "pending";
+  return "issued";
 }
 
 function formatNumber(value) {
