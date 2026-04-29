@@ -21,6 +21,7 @@ import {
   Search,
   Settings,
   Share2,
+  Trash2,
   Upload,
   Users,
   X,
@@ -29,6 +30,8 @@ import {
 import "./styles.css";
 
 const storageKey = "certificate-authority-session";
+const appName = "CertifyX";
+const appTagline = "Certificate Authority System";
 
 const emptySession = {
   token: "",
@@ -36,37 +39,6 @@ const emptySession = {
   email: "",
   orgId: "",
 };
-
-const sampleRecipients = [
-  { id: "1", fullName: "John Doe", email: "john@example.com", courseName: "Web Development", score: 95, grade: "A", completionDate: "2026-03-15", status: "active" },
-  { id: "2", fullName: "Jane Smith", email: "jane@example.com", courseName: "Data Science", score: 88, grade: "B+", completionDate: "2026-03-20", status: "active" },
-  { id: "3", fullName: "Bob Johnson", email: "bob@example.com", courseName: "Cloud Computing", score: 92, grade: "A-", completionDate: "2026-04-01", status: "active" },
-  { id: "4", fullName: "Alice Williams", email: "alice@example.com", courseName: "Web Development", score: 97, grade: "A+", completionDate: "2026-04-10", status: "active" },
-];
-
-const sampleCourses = [
-  { id: "web-dev", name: "Web Development", description: "Full-stack web development with React and Node.js", duration: "12 weeks", minScore: 70, enrolled: 234 },
-  { id: "data-science", name: "Data Science", description: "Data analysis, machine learning, and statistics", duration: "16 weeks", minScore: 75, enrolled: 189 },
-  { id: "cloud", name: "Cloud Computing", description: "AWS, Azure, and Google Cloud Platform fundamentals", duration: "10 weeks", minScore: 70, enrolled: 156 },
-  { id: "cybersec", name: "Cybersecurity", description: "Network security, ethical hacking, and compliance", duration: "14 weeks", minScore: 80, enrolled: 98 },
-];
-
-const sampleSignatories = [
-  { id: "1", name: "Dr. Sarah Johnson", title: "Dean of Education", addedDate: "2026-01-15" },
-  { id: "2", name: "Prof. Michael Chen", title: "Head of Engineering", addedDate: "2026-01-20" },
-  { id: "3", name: "Dr. Emily Davis", title: "Director of Programs", addedDate: "2026-02-10" },
-];
-
-const sampleCertificates = [
-  { id: "CERT-1234", recipientName: "John Doe", recipientEmail: "john@example.com", courseName: "Web Development", certificateTitle: "Certificate of Completion", uniqueCode: "WD-A95-2026-1234", status: "ISSUED", issuedAt: "2026-04-25", score: 95, grade: "A", completionDate: "2026-03-15", signatoryName: "Dr. Sarah Johnson", signatoryTitle: "Dean of Education" },
-  { id: "CERT-1235", recipientName: "Jane Smith", recipientEmail: "jane@example.com", courseName: "Data Science", certificateTitle: "Certificate of Completion", uniqueCode: "DS-B88-2026-1235", status: "ISSUED", issuedAt: "2026-04-24", score: 88, grade: "B+", completionDate: "2026-03-20", signatoryName: "Prof. Michael Chen", signatoryTitle: "Head of Engineering" },
-  { id: "CERT-1236", recipientName: "Bob Johnson", recipientEmail: "bob@example.com", courseName: "Cloud Computing", certificateTitle: "Certificate of Completion", uniqueCode: "CC-A92-2026-1236", status: "PENDING", issuedAt: "2026-04-24", score: 92, grade: "A-", completionDate: "2026-04-01", signatoryName: "Dr. Emily Davis", signatoryTitle: "Director of Programs" },
-  { id: "CERT-1237", recipientName: "Alice Williams", recipientEmail: "alice@example.com", courseName: "Web Development", certificateTitle: "Certificate of Completion", uniqueCode: "WD-A97-2026-1237", status: "ISSUED", issuedAt: "2026-04-23", score: 97, grade: "A+", completionDate: "2026-04-10", signatoryName: "Dr. Sarah Johnson", signatoryTitle: "Dean of Education" },
-  { id: "CERT-1238", recipientName: "Charlie Brown", recipientEmail: "charlie@example.com", courseName: "Cybersecurity", certificateTitle: "Certificate of Completion", uniqueCode: "CS-B82-2026-1238", status: "PENDING", issuedAt: "2026-04-23", score: 82, grade: "B", completionDate: "2026-04-08", signatoryName: "Dr. Emily Davis", signatoryTitle: "Director of Programs" },
-  { id: "CERT-1239", recipientName: "Diana Prince", recipientEmail: "diana@example.com", courseName: "Data Science", certificateTitle: "Certificate of Completion", uniqueCode: "DS-A91-2026-1239", status: "ISSUED", issuedAt: "2026-04-22", score: 91, grade: "A-", completionDate: "2026-04-05", signatoryName: "Prof. Michael Chen", signatoryTitle: "Head of Engineering" },
-  { id: "CERT-1240", recipientName: "Eve Thompson", recipientEmail: "eve@example.com", courseName: "Cloud Computing", certificateTitle: "Certificate of Completion", uniqueCode: "CC-A89-2026-1240", status: "ISSUED", issuedAt: "2026-04-22", score: 89, grade: "B+", completionDate: "2026-04-03", signatoryName: "Dr. Emily Davis", signatoryTitle: "Director of Programs" },
-  { id: "CERT-1241", recipientName: "Frank Miller", recipientEmail: "frank@example.com", courseName: "Cybersecurity", certificateTitle: "Certificate of Completion", uniqueCode: "CS-A94-2026-1241", status: "ISSUED", issuedAt: "2026-04-21", score: 94, grade: "A", completionDate: "2026-04-02", signatoryName: "Dr. Sarah Johnson", signatoryTitle: "Dean of Education" },
-];
 
 async function api(path, options = {}, session = emptySession) {
   const headers = {
@@ -241,7 +213,7 @@ function App() {
         {selectedCertificate ? (
           <CertificateDetail
             certificateId={selectedCertificate}
-            certificates={viewData(data.certificates, sampleCertificates)}
+            certificates={data.certificates || []}
             onBack={() => setSelectedCertificate(null)}
             session={session}
           />
@@ -266,8 +238,8 @@ function Login({ error, loading, onSubmit, onNavigateToRegister, onNavigateToVer
     <div className="flex min-h-screen items-center justify-center bg-[#000000] p-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="mb-2 text-2xl font-medium tracking-tight text-[#FFE8DB]">CertAuth</h1>
-          <p className="text-sm text-[#9a9a9a]">Certificate Authority System</p>
+          <h1 className="mb-2 text-2xl font-medium tracking-tight text-[#FFE8DB]">{appName}</h1>
+          <p className="text-sm text-[#9a9a9a]">{appTagline}</p>
         </div>
 
         <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6">
@@ -308,8 +280,8 @@ function Register({ error, loading, onSubmit, onNavigateToLogin }) {
     <div className="flex min-h-screen items-center justify-center bg-[#000000] p-4">
       <div className="w-full max-w-2xl">
         <div className="mb-8 text-center">
-          <h1 className="mb-2 text-2xl font-medium tracking-tight text-[#FFE8DB]">CertAuth</h1>
-          <p className="text-sm text-[#9a9a9a]">Certificate Authority System</p>
+          <h1 className="mb-2 text-2xl font-medium tracking-tight text-[#FFE8DB]">{appName}</h1>
+          <p className="text-sm text-[#9a9a9a]">{appTagline}</p>
         </div>
 
         <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6">
@@ -372,8 +344,8 @@ function Sidebar({ currentPage, onNavigate, profile, email, onLogout, mobileOpen
       }`}
     >
       <div className="border-b border-[#2a2a2a] p-6">
-        <h1 className="text-2xl font-medium tracking-tight text-[#FFE8DB]">CertAuth</h1>
-        <p className="mt-1 text-xs text-[#9a9a9a]">Certificate Authority System</p>
+        <h1 className="text-2xl font-medium tracking-tight text-[#FFE8DB]">{appName}</h1>
+        <p className="mt-1 text-xs text-[#9a9a9a]">{appTagline}</p>
       </div>
 
       <nav className="flex-1 p-4">
@@ -398,7 +370,7 @@ function Sidebar({ currentPage, onNavigate, profile, email, onLogout, mobileOpen
       <div className="border-t border-[#2a2a2a] p-4">
         <div className="mb-4 text-xs text-[#9a9a9a]">
           <p>Organization</p>
-          <p className="mt-1 truncate text-[#FFE8DB]">{profile?.name || "Acme Corporation"}</p>
+          <p className="mt-1 truncate text-[#FFE8DB]">{profile?.name || "Organization"}</p>
           <p className="mt-1 truncate">{email}</p>
         </div>
         <button onClick={onLogout} className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-[#9a9a9a] hover:bg-[#1a1a1a] hover:text-[#FFE8DB]">
@@ -413,10 +385,10 @@ function Sidebar({ currentPage, onNavigate, profile, email, onLogout, mobileOpen
 function Workspace({ currentPage, setCurrentPage, data, loading, session, refresh, onViewCertificate }) {
   const model = useMemo(
     () => ({
-      recipients: viewData(data.recipients, sampleRecipients),
-      courses: viewData(data.courses, sampleCourses),
-      signatories: viewData(data.signatories, sampleSignatories),
-      certificates: viewData(data.certificates, sampleCertificates),
+      recipients: data.recipients || [],
+      courses: data.courses || [],
+      signatories: data.signatories || [],
+      certificates: data.certificates || [],
       profile: data.profile,
     }),
     [data],
@@ -435,6 +407,14 @@ function Dashboard({ data, loading, onNavigate }) {
   const recentCertificates = data.certificates.slice(0, 5);
   const issued = data.certificates.filter((cert) => cert.status === "ISSUED" || cert.status === "issued").length;
   const pending = data.certificates.length - issued;
+  const issuedThisWeek = data.certificates.filter((cert) => {
+    if (!(cert.status === "ISSUED" || cert.status === "issued") || !cert.issuedAt) return false;
+    const issuedAt = new Date(cert.issuedAt);
+    if (Number.isNaN(issuedAt.getTime())) return false;
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return issuedAt >= sevenDaysAgo;
+  }).length;
 
   const columns = [
     { key: "id", label: "ID", width: "15%" },
@@ -449,10 +429,10 @@ function Dashboard({ data, loading, onNavigate }) {
       <PageHeader title="Dashboard" description="Overview of certificate operations and activity" />
 
       <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total Certificates" value={formatNumber(data.certificates.length || 1247)} icon={<FileText className="h-4 w-4" />} trend="+12% from last month" />
-        <MetricCard label="Active Recipients" value={formatNumber(data.recipients.length || 834)} icon={<Users className="h-4 w-4" />} trend="+8% from last month" />
-        <MetricCard label="Pending Certificates" value={formatNumber(pending || 23)} icon={<Clock className="h-4 w-4" />} />
-        <MetricCard label="Issued This Week" value="47" icon={<Award className="h-4 w-4" />} trend="+5% from last week" />
+        <MetricCard label="Total Certificates" value={formatNumber(data.certificates.length)} icon={<FileText className="h-4 w-4" />} />
+        <MetricCard label="Active Recipients" value={formatNumber(data.recipients.length)} icon={<Users className="h-4 w-4" />} />
+        <MetricCard label="Pending Certificates" value={formatNumber(pending)} icon={<Clock className="h-4 w-4" />} />
+        <MetricCard label="Issued This Week" value={formatNumber(issuedThisWeek)} icon={<Award className="h-4 w-4" />} />
       </div>
 
       <div className="mb-6">
@@ -494,6 +474,10 @@ function Recipients({ data, session, refresh }) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [editingRecipient, setEditingRecipient] = useState(null);
+  const [generatingFor, setGeneratingFor] = useState(null);
+  const [busyRecipientId, setBusyRecipientId] = useState("");
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -522,6 +506,99 @@ function Recipients({ data, session, refresh }) {
     }
   }
 
+  async function handleEdit(event) {
+    event.preventDefault();
+    if (!editingRecipient) return;
+    const form = new FormData(event.currentTarget);
+    setMessage("");
+    setBusyRecipientId(editingRecipient.id);
+    try {
+      await api(
+        `/api/recipients/${editingRecipient.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            fullName: form.get("fullName"),
+            email: form.get("email"),
+            courseId: form.get("courseId"),
+            score: Number(form.get("score") || 0),
+            grade: form.get("grade"),
+            completionDate: form.get("completionDate"),
+          }),
+        },
+        session,
+      );
+      setEditingRecipient(null);
+      await refresh();
+      setMessage("Recipient updated.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setBusyRecipientId("");
+    }
+  }
+
+  async function handleDelete(recipient) {
+    setOpenMenuId(null);
+    if (!window.confirm(`Delete ${recipient.fullName}? This cannot be undone.`)) return;
+    setMessage("");
+    setBusyRecipientId(recipient.id);
+    try {
+      await api(`/api/recipients/${recipient.id}`, { method: "DELETE" }, session);
+      await refresh();
+      setMessage("Recipient deleted.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setBusyRecipientId("");
+    }
+  }
+
+  async function handleGenerate(event) {
+    event.preventDefault();
+    if (!generatingFor) return;
+    const form = new FormData(event.currentTarget);
+    setMessage("");
+    setBusyRecipientId(generatingFor.id);
+    try {
+      await api(
+        "/api/certificates/generate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            recipientId: generatingFor.id,
+            signatoryId: form.get("signatoryId"),
+            certificateTitle: form.get("certificateTitle"),
+          }),
+        },
+        session,
+      );
+      setGeneratingFor(null);
+      await refresh();
+      setMessage("Certificate generated.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setBusyRecipientId("");
+    }
+  }
+
+  function startEdit(recipient) {
+    setOpenMenuId(null);
+    setShowForm(false);
+    setGeneratingFor(null);
+    setEditingRecipient(recipient);
+    setMessage("");
+  }
+
+  function startGenerate(recipient) {
+    setOpenMenuId(null);
+    setShowForm(false);
+    setEditingRecipient(null);
+    setGeneratingFor(recipient);
+    setMessage("");
+  }
+
   const rows = filterRows(data.recipients, searchQuery, ["fullName", "email", "courseName"]);
   const columns = [
     { key: "name", label: "Full Name", width: "20%" },
@@ -535,7 +612,12 @@ function Recipients({ data, session, refresh }) {
 
   return (
     <div>
-      <PageHeader title="Recipients" description="Manage certificate recipients and their course completion records" action={<Button onClick={() => setShowForm(!showForm)}><Plus className="h-4 w-4" />Add Recipient</Button>} />
+      <PageHeader title="Recipients" description="Manage certificate recipients and their course completion records" action={<Button onClick={() => {
+        setShowForm(!showForm);
+        setEditingRecipient(null);
+        setGeneratingFor(null);
+        setMessage("");
+      }}><Plus className="h-4 w-4" />Add Recipient</Button>} />
       {showForm && (
         <Panel title="New Recipient">
           <form onSubmit={handleSubmit}>
@@ -554,6 +636,39 @@ function Recipients({ data, session, refresh }) {
           </form>
         </Panel>
       )}
+      {editingRecipient && (
+        <Panel title={`Edit ${editingRecipient.fullName}`}>
+          <form key={editingRecipient.id} onSubmit={handleEdit}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField label="Full Name" required><Input name="fullName" defaultValue={editingRecipient.fullName} required /></FormField>
+              <FormField label="Email" required><Input name="email" type="email" defaultValue={editingRecipient.email} required /></FormField>
+              <FormField label="Course" required>
+                <Select name="courseId" required defaultValue={editingRecipient.courseId} options={[{ value: "", label: "Select a course" }, ...data.courses.map((course) => ({ value: course.id, label: course.name }))]} />
+              </FormField>
+              <FormField label="Score" required><Input name="score" type="number" defaultValue={editingRecipient.score} required /></FormField>
+              <FormField label="Grade" required><Input name="grade" defaultValue={editingRecipient.grade} required /></FormField>
+              <FormField label="Completion Date" required><Input name="completionDate" type="date" defaultValue={formatDate(editingRecipient.completionDate)} required /></FormField>
+            </div>
+            <FormActions onCancel={() => setEditingRecipient(null)} submitLabel={busyRecipientId === editingRecipient.id ? "Saving..." : "Save Changes"} disabled={busyRecipientId === editingRecipient.id} />
+          </form>
+        </Panel>
+      )}
+      {generatingFor && (
+        <Panel title={`Generate certificate for ${generatingFor.fullName}`}>
+          <form key={generatingFor.id} onSubmit={handleGenerate}>
+            <div className="mb-4 grid gap-4 md:grid-cols-2">
+              <Detail label="Recipient" value={generatingFor.fullName} />
+              <Detail label="Course" value={generatingFor.courseName || courseName(data.courses, generatingFor.courseId)} />
+            </div>
+            <FormField label="Certificate Title" required><Input name="certificateTitle" defaultValue="Certificate of Completion" required /></FormField>
+            <FormField label="Signatory" required>
+              <Select name="signatoryId" required options={[{ value: "", label: "Select a signatory" }, ...data.signatories.map((signatory) => ({ value: signatory.id, label: `${signatory.name} - ${signatory.title}` }))]} />
+            </FormField>
+            <FormActions onCancel={() => setGeneratingFor(null)} submitLabel={busyRecipientId === generatingFor.id ? "Generating..." : "Generate Certificate"} disabled={busyRecipientId === generatingFor.id} />
+          </form>
+        </Panel>
+      )}
+      {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("deleted") || message.includes("generated") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search recipients by name, email, or course..." />
       <Table
         columns={columns}
@@ -566,7 +681,17 @@ function Recipients({ data, session, refresh }) {
             <td className="px-4 py-3 text-sm text-[#FFE8DB]">{recipient.score}</td>
             <td className="px-4 py-3 text-sm text-[#FFE8DB]">{recipient.grade}</td>
             <td className="px-4 py-3 text-sm text-[#9a9a9a]">{formatDate(recipient.completionDate)}</td>
-            <td className="px-4 py-3"><IconButton title="Recipient actions" icon={MoreVertical} /></td>
+            <td className="px-4 py-3">
+              <RowActionMenu
+                open={openMenuId === recipient.id}
+                onToggle={() => setOpenMenuId((current) => (current === recipient.id ? null : recipient.id))}
+                onClose={() => setOpenMenuId(null)}
+                onEdit={() => startEdit(recipient)}
+                onGenerate={() => startGenerate(recipient)}
+                onDelete={() => handleDelete(recipient)}
+                disabled={busyRecipientId === recipient.id}
+              />
+            </td>
           </tr>
         )}
       />
@@ -877,10 +1002,10 @@ function Generate({ data, session, refresh }) {
 }
 
 function CertificateDetail({ certificateId, certificates, onBack, session }) {
-  const certificate = certificates.find((cert) => cert.id === certificateId) || certificates[0] || sampleCertificates[0];
+  const certificate = certificates.find((cert) => cert.id === certificateId);
 
   async function download() {
-    if (String(certificate.id).startsWith("CERT-")) return;
+    if (!certificate) return;
     const blob = await api(`/api/certificates/download/${certificate.id}`, {}, session);
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -895,7 +1020,12 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
       <div className="mb-6">
         <Button variant="ghost" onClick={onBack}><ArrowLeft className="h-4 w-4" />Back to Registry</Button>
       </div>
-      <div className="grid gap-6 xl:grid-cols-3">
+      {!certificate ? (
+        <Panel title="Certificate not found">
+          <p className="text-sm text-[#9a9a9a]">This certificate is not available in the current organization data.</p>
+        </Panel>
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-8">
             <div className="flex aspect-[1.414/1] items-center justify-center rounded border border-[#2a2a2a] bg-[#1a1a1a]">
@@ -907,8 +1037,8 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
                 <p className="font-mono text-xs text-[#739EC9]">{certificate.uniqueCode}</p>
                 <div className="mt-8 border-t border-[#2a2a2a] pt-8">
                   <div className="text-sm text-[#9a9a9a]">
-                    <p className="mb-1">{certificate.signatoryName || "Dr. Sarah Johnson"}</p>
-                    <p className="text-xs">{certificate.signatoryTitle || "Dean of Education"}</p>
+                    <p className="mb-1">{certificate.signatoryName || "--"}</p>
+                    <p className="text-xs">{certificate.signatoryTitle || "--"}</p>
                   </div>
                 </div>
               </div>
@@ -932,7 +1062,8 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
             <Button variant="secondary" fullWidth><Share2 className="h-4 w-4" />Share Certificate</Button>
           </div>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -940,7 +1071,7 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
 function SettingsPanel({ data }) {
   const [saving, setSaving] = useState(false);
   const [logoName, setLogoName] = useState("");
-  const profile = data.profile || { name: "Acme Corporation", email: "admin@acme.com", website: "https://acme.com" };
+  const profile = data.profile || {};
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -970,10 +1101,10 @@ function SettingsPanel({ data }) {
         <div className="mt-6 rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6">
           <h3 className="mb-4 text-lg font-medium text-[#FFE8DB]">Organization Statistics</h3>
           <div className="grid gap-4 sm:grid-cols-2">
-            <StatBlock label="Total Certificates" value={formatNumber(data.certificates.length || 1247)} />
-            <StatBlock label="Active Recipients" value={formatNumber(data.recipients.length || 834)} />
-            <StatBlock label="Total Courses" value={formatNumber(data.courses.length || 24)} />
-            <StatBlock label="Account Created" value="Jan 15, 2026" />
+            <StatBlock label="Total Certificates" value={formatNumber(data.certificates.length)} />
+            <StatBlock label="Active Recipients" value={formatNumber(data.recipients.length)} />
+            <StatBlock label="Total Courses" value={formatNumber(data.courses.length)} />
+            <StatBlock label="Account Created" value={formatDate(profile.createdAt)} />
           </div>
         </div>
       </div>
@@ -985,23 +1116,27 @@ function Verify({ onBack }) {
   const [verificationCode, setVerificationCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [result, setResult] = useState(null);
+  const [verifyError, setVerifyError] = useState("");
 
-  function handleVerify() {
+  async function handleVerify() {
+    const code = verificationCode.trim();
+    if (!code) {
+      setResult(null);
+      setVerifyError("Enter a verification code.");
+      return;
+    }
     setVerifying(true);
-    setTimeout(() => {
+    setVerifyError("");
+    setResult(null);
+    try {
+      const certificate = await api(`/api/verify/${encodeURIComponent(code)}`);
+      setResult(certificate);
+    } catch {
+      setVerifyError("The verification code you entered could not be found in our system. Please check the code and try again.");
+    } finally {
       setVerifying(false);
-      setResult(verificationCode.length > 0 ? "valid" : "invalid");
-    }, 800);
+    }
   }
-
-  const certificateData = {
-    recipient: "John Doe",
-    course: "Web Development",
-    organization: "Acme Corporation",
-    issuedDate: "2026-04-25",
-    verificationCode: "WD-A95-2026-1234",
-    status: "issued",
-  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#000000] p-4">
@@ -1017,7 +1152,7 @@ function Verify({ onBack }) {
             </div>
             <Button onClick={handleVerify} disabled={verifying}><Search className="h-4 w-4" />{verifying ? "Verifying..." : "Verify"}</Button>
           </div>
-          {result === "valid" && (
+          {result && (
             <div className="rounded border border-[#5682B1]/30 bg-[#5682B1]/10 p-6">
               <div className="mb-4 flex items-start gap-3">
                 <CheckCircle className="h-6 w-6 flex-shrink-0 text-[#5682B1]" />
@@ -1027,22 +1162,22 @@ function Verify({ onBack }) {
                 </div>
               </div>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Detail label="Recipient" value={certificateData.recipient} />
-                <Detail label="Course" value={certificateData.course} />
-                <Detail label="Organization" value={certificateData.organization} />
-                <Detail label="Issued Date" value={certificateData.issuedDate} />
-                <Detail label="Verification Code" value={certificateData.verificationCode} mono />
-                <Detail label="Status" value={certificateData.status.toUpperCase()} accent />
+                <Detail label="Recipient" value={result.recipientName || "--"} />
+                <Detail label="Course" value={result.courseName || "--"} />
+                <Detail label="Organization" value={result.organizationName || "--"} />
+                <Detail label="Issued Date" value={formatDate(result.issuedAt)} />
+                <Detail label="Verification Code" value={verificationCode.trim()} mono />
+                <Detail label="Status" value={String(result.status || "--").toUpperCase()} accent />
               </div>
             </div>
           )}
-          {result === "invalid" && (
+          {verifyError && (
             <div className="rounded border border-[#dc2626]/30 bg-[#dc2626]/10 p-6">
               <div className="flex items-start gap-3">
                 <XCircle className="h-6 w-6 flex-shrink-0 text-[#dc2626]" />
                 <div>
                   <h3 className="mb-1 text-lg font-medium text-[#FFE8DB]">Certificate Not Found</h3>
-                  <p className="text-sm text-[#9a9a9a]">The verification code you entered could not be found in our system. Please check the code and try again.</p>
+                  <p className="text-sm text-[#9a9a9a]">{verifyError}</p>
                 </div>
               </div>
             </div>
@@ -1050,7 +1185,7 @@ function Verify({ onBack }) {
         </div>
         <div className="text-center">
           {onBack && <button onClick={onBack} className="mb-4 text-sm text-[#5682B1] hover:text-[#739EC9]">Back to dashboard</button>}
-          <p className="text-xs text-[#9a9a9a]">Powered by <span className="text-[#5682B1]">CertAuth</span> Certificate Authority System</p>
+          <p className="text-xs text-[#9a9a9a]">Powered by <span className="text-[#5682B1]">{appName}</span> {appTagline}</p>
         </div>
       </div>
     </div>
@@ -1292,10 +1427,10 @@ function Panel({ title, children }) {
   );
 }
 
-function FormActions({ onCancel, submitLabel }) {
+function FormActions({ onCancel, submitLabel, disabled = false }) {
   return (
     <div className="mt-6 flex gap-3">
-      <Button type="submit" variant="primary">{submitLabel}</Button>
+      <Button type="submit" variant="primary" disabled={disabled}>{submitLabel}</Button>
       <Button variant="secondary" onClick={onCancel}>Cancel</Button>
     </div>
   );
@@ -1317,6 +1452,67 @@ function IconButton({ title, icon: Icon, onClick }) {
     <button onClick={onClick} className="text-[#9a9a9a] hover:text-[#5682B1]" title={title} aria-label={title}>
       <Icon className="h-4 w-4" />
     </button>
+  );
+}
+
+function RowActionMenu({ open, onToggle, onClose, onEdit, onGenerate, onDelete, disabled }) {
+  const menuRef = useRef(null);
+  const buttonRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function updatePosition() {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const menuWidth = 192;
+      const gap = 8;
+      setMenuPosition({
+        top: rect.bottom + gap,
+        left: Math.min(window.innerWidth - menuWidth - 12, Math.max(12, rect.right - menuWidth)),
+      });
+    }
+
+    function handlePointerDown(event) {
+      if (menuRef.current?.contains(event.target) || buttonRef.current?.contains(event.target)) return;
+      onClose();
+    }
+
+    updatePosition();
+    document.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, onClose]);
+
+  return (
+    <div className="flex justify-end">
+      <span ref={buttonRef}>
+        <IconButton title="Recipient actions" icon={MoreVertical} onClick={onToggle} />
+      </span>
+      {open && (
+        <div
+          ref={menuRef}
+          className="fixed z-[100] w-48 overflow-hidden rounded border border-[#2a2a2a] bg-[#0a0a0a] shadow-[0_16px_32px_rgba(0,0,0,0.45)]"
+          style={{ top: menuPosition.top, left: menuPosition.left }}
+        >
+          <button type="button" disabled={disabled} onClick={onEdit} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#FFE8DB] hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-50">
+            <PenTool className="h-4 w-4 text-[#739EC9]" />Edit recipient
+          </button>
+          <button type="button" disabled={disabled} onClick={onGenerate} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#FFE8DB] hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-50">
+            <Award className="h-4 w-4 text-[#739EC9]" />Generate certificate
+          </button>
+          <button type="button" disabled={disabled} onClick={onDelete} className="flex w-full items-center gap-2 border-t border-[#2a2a2a] px-3 py-2 text-left text-sm text-[#dc2626] hover:bg-[#dc2626]/10 disabled:cursor-not-allowed disabled:opacity-50">
+            <Trash2 className="h-4 w-4" />Delete recipient
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1346,10 +1542,6 @@ function inputClass(extra = "") {
   return `themed-input w-full rounded border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 text-sm text-[#FFE8DB] placeholder:text-[#5a5a5a] focus:border-[#5682B1] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${extra}`;
 }
 
-function viewData(actual, fallback) {
-  return actual && actual.length ? actual : fallback;
-}
-
 function filterRows(rows, query, keys) {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return rows;
@@ -1369,7 +1561,7 @@ function formatNumber(value) {
 }
 
 function formatDate(value) {
-  if (!value) return "2026-04-25";
+  if (!value) return "--";
   const stringValue = String(value);
   if (/^\d{4}-\d{2}-\d{2}/.test(stringValue)) return stringValue.slice(0, 10);
   try {
