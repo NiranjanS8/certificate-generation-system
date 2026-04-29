@@ -906,6 +906,7 @@ function Signatories({ data, session, refresh, confirmAction }) {
   const [signatureName, setSignatureName] = useState("");
   const [openMenuId, setOpenMenuId] = useState(null);
   const [editingSignatory, setEditingSignatory] = useState(null);
+  const [editSignatureFile, setEditSignatureFile] = useState(null);
   const [busySignatoryId, setBusySignatoryId] = useState("");
 
   async function handleSubmit(event) {
@@ -943,7 +944,20 @@ function Signatories({ data, session, refresh, confirmAction }) {
         },
         session,
       );
+      if (editSignatureFile) {
+        const signatureForm = new FormData();
+        signatureForm.append("file", editSignatureFile);
+        await api(
+          `/api/signatories/${editingSignatory.id}/signature`,
+          {
+            method: "POST",
+            body: signatureForm,
+          },
+          session,
+        );
+      }
       setEditingSignatory(null);
+      setEditSignatureFile(null);
       await refresh();
       setMessage("Signatory updated.");
     } catch (error) {
@@ -994,15 +1008,15 @@ function Signatories({ data, session, refresh, confirmAction }) {
     setOpenMenuId(null);
     setShowForm(false);
     setEditingSignatory(signatory);
+    setEditSignatureFile(null);
     setMessage("");
   }
 
   const rows = filterRows(data.signatories, searchQuery, ["name", "title"]);
   const columns = [
-    { key: "name", label: "Name", width: "30%" },
-    { key: "title", label: "Title", width: "30%" },
-    { key: "signature", label: "Signature", width: "25%" },
-    { key: "date", label: "Added", width: "10%" },
+    { key: "name", label: "Name", width: "32%" },
+    { key: "title", label: "Title", width: "32%" },
+    { key: "signature", label: "Signature", width: "28%" },
     { key: "actions", label: "", width: "5%" },
   ];
 
@@ -1011,6 +1025,7 @@ function Signatories({ data, session, refresh, confirmAction }) {
       <PageHeader title="Signatories" description="Manage authorized signatories for certificate validation" action={<Button onClick={() => {
         setShowForm(!showForm);
         setEditingSignatory(null);
+        setEditSignatureFile(null);
         setMessage("");
       }}><Plus className="h-4 w-4" />Add Signatory</Button>} />
       {showForm && (
@@ -1036,7 +1051,15 @@ function Signatories({ data, session, refresh, confirmAction }) {
               <FormField label="Full Name" required><Input name="name" defaultValue={editingSignatory.name} required /></FormField>
               <FormField label="Title" required><Input name="title" defaultValue={editingSignatory.title} required /></FormField>
             </div>
-            <FormActions onCancel={() => setEditingSignatory(null)} submitLabel={busySignatoryId === editingSignatory.id ? "Saving..." : "Save Changes"} disabled={busySignatoryId === editingSignatory.id} />
+            <div className="mt-4">
+              <FileUpload label="Signature Image" accept="image/png,image/jpeg" onFileSelect={(file) => setEditSignatureFile(file || null)} />
+              {editingSignatory.signatureUrl && !editSignatureFile && <p className="mt-2 text-xs text-[#9a9a9a]">Current signature is already uploaded.</p>}
+              {editSignatureFile && <p className="mt-2 text-xs text-[#739EC9]">{editSignatureFile.name}</p>}
+            </div>
+            <FormActions onCancel={() => {
+              setEditingSignatory(null);
+              setEditSignatureFile(null);
+            }} submitLabel={busySignatoryId === editingSignatory.id ? "Saving..." : "Save Changes"} disabled={busySignatoryId === editingSignatory.id} />
           </form>
         </Panel>
       )}
@@ -1055,11 +1078,8 @@ function Signatories({ data, session, refresh, confirmAction }) {
               </div>
             </td>
             <td className="px-4 py-3">
-              <div className="flex h-8 w-32 items-center justify-center rounded border border-[#2a2a2a] bg-[#1a1a1a]">
-                <span className="text-xs text-[#9a9a9a]">Signature Preview</span>
-              </div>
+              <SignaturePreview signatory={signatory} session={session} />
             </td>
-            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{formatDate(signatory.addedDate || signatory.createdAt)}</td>
             <td className="px-4 py-3">
               <RowActionMenu
                 menuTitle="Signatory actions"
@@ -1348,7 +1368,7 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
         const blob = await api(`/api/certificates/download/${certificate.id}`, {}, session);
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
-        setPdfUrl(objectUrl);
+        setPdfUrl(`${objectUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`);
       } catch (error) {
         if (!cancelled) setPdfError(readError(error));
       } finally {
@@ -1943,6 +1963,60 @@ function RowActionMenu({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function SignaturePreview({ signatory, session }) {
+  const [imageUrl, setImageUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!signatory.signatureUrl) return undefined;
+
+    let objectUrl = "";
+    let cancelled = false;
+
+    async function loadSignature() {
+      setFailed(false);
+      setImageUrl("");
+      try {
+        const blob = await api(`/api/signatories/${signatory.id}/signature`, {}, session);
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setImageUrl(objectUrl);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    }
+
+    loadSignature();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [signatory.id, signatory.signatureUrl, session.token]);
+
+  if (!signatory.signatureUrl || failed) {
+    return (
+      <div className="flex h-10 w-36 items-center justify-center rounded border border-[#2a2a2a] bg-[#1a1a1a]">
+        <span className="text-xs text-[#9a9a9a]">No signature</span>
+      </div>
+    );
+  }
+
+  if (!imageUrl) {
+    return (
+      <div className="flex h-10 w-36 items-center justify-center rounded border border-[#2a2a2a] bg-[#1a1a1a]">
+        <span className="text-xs text-[#739EC9]">Loading...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-10 w-36 items-center justify-center overflow-hidden rounded border border-[#2a2a2a] bg-[#FFE8DB] px-2">
+      <img src={imageUrl} alt={`${signatory.name} signature`} className="max-h-8 max-w-full object-contain" />
     </div>
   );
 }

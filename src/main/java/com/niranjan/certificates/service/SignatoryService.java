@@ -14,6 +14,10 @@ public interface SignatoryService {
 
     SignatoryResponse getById(UUID orgId, UUID id);
 
+    byte[] getSignatureImage(UUID orgId, UUID id);
+
+    String getSignatureContentType(UUID orgId, UUID id);
+
     SignatoryResponse update(UUID orgId, UUID id, SignatoryRequest request);
 
     void delete(UUID orgId, UUID id);

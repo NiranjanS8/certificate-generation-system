@@ -8,6 +8,7 @@ import com.niranjan.certificates.service.SignatoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -40,6 +41,14 @@ public class SignatoryController {
     public ResponseEntity<SignatoryResponse> getById(@AuthenticationPrincipal OrganizationPrincipal principal,
                                                      @PathVariable UUID id) {
         return ResponseEntity.ok(signatoryService.getById(principal.getOrgId(), id));
+    }
+
+    @GetMapping("/{id}/signature")
+    public ResponseEntity<byte[]> getSignature(@AuthenticationPrincipal OrganizationPrincipal principal,
+                                               @PathVariable UUID id) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(signatoryService.getSignatureContentType(principal.getOrgId(), id)))
+                .body(signatoryService.getSignatureImage(principal.getOrgId(), id));
     }
 
     @PutMapping("/{id}")
