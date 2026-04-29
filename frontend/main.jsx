@@ -649,12 +649,13 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
 
   const rows = filterRows(data.recipients, searchQuery, ["fullName", "email", "courseName"]);
   const columns = [
-    { key: "name", label: "Full Name", width: "20%" },
-    { key: "email", label: "Email", width: "20%" },
-    { key: "course", label: "Course", width: "20%" },
-    { key: "score", label: "Score", width: "10%" },
-    { key: "grade", label: "Grade", width: "10%" },
-    { key: "completion", label: "Completion Date", width: "15%" },
+    { key: "name", label: "Full Name", width: "18%" },
+    { key: "email", label: "Email", width: "18%" },
+    { key: "course", label: "Course", width: "18%" },
+    { key: "score", label: "Score", width: "8%" },
+    { key: "grade", label: "Grade", width: "8%" },
+    { key: "completion", label: "Completion Date", width: "14%" },
+    { key: "certificate", label: "Certificate", width: "11%" },
     { key: "actions", label: "", width: "5%" },
   ];
 
@@ -731,6 +732,9 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
               <td className="px-4 py-3 text-sm text-[#FFE8DB]">{recipient.score}</td>
               <td className="px-4 py-3 text-sm text-[#FFE8DB]">{recipient.grade}</td>
               <td className="px-4 py-3 text-sm text-[#9a9a9a]">{formatDate(recipient.completionDate)}</td>
+              <td className="px-4 py-3">
+                <StatusBadge status={certificate ? normalizeStatus(certificate.status) : "not issued"} />
+              </td>
               <td className="px-4 py-3">
                 <RowActionMenu
                   open={openMenuId === recipient.id}
@@ -2114,6 +2118,7 @@ function StatusBadge({ status }) {
     active: "bg-[#739EC9]/20 text-[#739EC9] border-[#739EC9]/30",
     revoked: "bg-[#dc2626]/20 text-[#dc2626] border-[#dc2626]/30",
     inactive: "bg-[#2a2a2a] text-[#9a9a9a] border-[#2a2a2a]",
+    "not issued": "bg-[#2a2a2a] text-[#9a9a9a] border-[#2a2a2a]",
   };
   return <span className={`inline-flex rounded border px-2 py-0.5 text-xs ${styles[status] || styles.inactive}`}>{capitalize(status)}</span>;
 }
