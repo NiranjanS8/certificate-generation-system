@@ -58,6 +58,7 @@ async function api(path, options = {}, session = emptySession) {
 }
 
 function App() {
+  const initialVerificationCode = new URLSearchParams(window.location.search).get("verify") || "";
   const [session, setSession] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem(storageKey)) || emptySession;
@@ -66,7 +67,7 @@ function App() {
     }
   });
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(session.token));
-  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [currentPage, setCurrentPage] = useState(initialVerificationCode ? "verify" : "dashboard");
   const [authView, setAuthView] = useState("login");
   const [selectedCertificate, setSelectedCertificate] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -168,7 +169,7 @@ function App() {
   }
 
   if (!isAuthenticated && currentPage === "verify") {
-    return <Verify onBack={() => setCurrentPage("dashboard")} />;
+    return <Verify initialCode={initialVerificationCode} onBack={() => setCurrentPage("dashboard")} />;
   }
 
   if (!isAuthenticated) {
@@ -191,7 +192,7 @@ function App() {
   }
 
   if (currentPage === "verify") {
-    return <Verify onBack={() => setCurrentPage("dashboard")} />;
+    return <Verify initialCode={initialVerificationCode} onBack={() => setCurrentPage("dashboard")} />;
   }
 
   return (
@@ -414,7 +415,7 @@ function Workspace({ currentPage, setCurrentPage, data, loading, session, refres
   if (currentPage === "courses") return <Courses data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
   if (currentPage === "signatories") return <Signatories data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
   if (currentPage === "certificates") return <Certificates data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} confirmAction={confirmAction} />;
-  if (currentPage === "generate") return <Generate data={model} session={session} refresh={refresh} />;
+  if (currentPage === "generate") return <Generate data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} />;
   return <SettingsPanel data={model} session={session} refresh={refresh} />;
 }
 
@@ -1288,17 +1289,20 @@ function Certificates({ data, session, refresh, onViewCertificate, confirmAction
   );
 }
 
-function Generate({ data, session, refresh }) {
+function Generate({ data, session, refresh, onViewCertificate }) {
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState("");
+  const [generatedCertificate, setGeneratedCertificate] = useState(null);
 
   async function handleSubmit(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setGenerating(true);
     setMessage("");
+    setGeneratedCertificate(null);
     try {
-      await api(
+      const certificate = await api(
         "/api/certificates/generate",
         {
           method: "POST",
@@ -1310,8 +1314,9 @@ function Generate({ data, session, refresh }) {
         },
         session,
       );
-      event.currentTarget.reset();
-      refresh();
+      formElement.reset();
+      await refresh();
+      setGeneratedCertificate(certificate);
       setMessage("Certificate generated.");
     } catch (error) {
       setMessage(readError(error));
@@ -1333,7 +1338,19 @@ function Generate({ data, session, refresh }) {
             <FormField label="Signatory" required>
               <Select name="signatoryId" required options={[{ value: "", label: "Select a signatory" }, ...data.signatories.map((signatory) => ({ value: signatory.id, label: `${signatory.name} - ${signatory.title}` }))]} />
             </FormField>
-            {message && <p className={`mb-4 text-xs ${message.includes("generated") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
+            {message && (
+              <div className={`mb-4 rounded border p-3 text-xs ${message.includes("generated") ? "border-[#5682B1]/30 bg-[#5682B1]/10 text-[#739EC9]" : "border-[#dc2626]/30 bg-[#dc2626]/10 text-[#dc2626]"}`}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p>{message}</p>
+                  {generatedCertificate?.id && (
+                    <Button type="button" variant="secondary" size="sm" onClick={() => onViewCertificate(generatedCertificate.id)}>
+                      <Eye className="h-4 w-4" />
+                      View Certificate
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="mt-6">
               <Button type="submit" variant="primary" disabled={generating}>
                 {generating ? "Generating Certificate..." : "Generate Certificate"}
@@ -1365,6 +1382,7 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
   const [pdfUrl, setPdfUrl] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
 
   useEffect(() => {
     if (!certificate) return undefined;
@@ -1405,6 +1423,34 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
     link.download = `${certificate.uniqueCode || "certificate"}.pdf`;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function shareCertificate() {
+    if (!certificate?.uniqueCode) {
+      setShareMessage("This certificate does not have a verification code to share.");
+      return;
+    }
+
+    const verifyUrl = `${window.location.origin}${window.location.pathname}?verify=${encodeURIComponent(certificate.uniqueCode)}`;
+    const text = `Verify ${certificate.recipientName || "this certificate"}'s certificate for ${certificate.courseName || "the course"} using code ${certificate.uniqueCode}.`;
+    const shareData = {
+      title: `${certificate.certificateTitle || "Certificate"} - ${certificate.recipientName || displayCertificateId(certificate)}`,
+      text,
+      url: verifyUrl,
+    };
+
+    try {
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        await navigator.share(shareData);
+        setShareMessage("Share sheet opened.");
+        return;
+      }
+      await navigator.clipboard.writeText(`${text}\n${verifyUrl}`);
+      setShareMessage("Verification link copied to clipboard.");
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      setShareMessage("Unable to share from this browser.");
+    }
   }
 
   return (
@@ -1459,7 +1505,8 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
           </div>
           <div className="space-y-2">
             <Button variant="primary" fullWidth onClick={download}><Download className="h-4 w-4" />Download PDF</Button>
-            <Button variant="secondary" fullWidth><Share2 className="h-4 w-4" />Share Certificate</Button>
+            <Button variant="secondary" fullWidth onClick={shareCertificate}><Share2 className="h-4 w-4" />Share Certificate</Button>
+            {shareMessage && <p className="text-center text-xs text-[#739EC9]">{shareMessage}</p>}
           </div>
         </div>
         </div>
@@ -1553,8 +1600,8 @@ function SettingsPanel({ data, session, refresh }) {
   );
 }
 
-function Verify({ onBack }) {
-  const [verificationCode, setVerificationCode] = useState("");
+function Verify({ initialCode = "", onBack }) {
+  const [verificationCode, setVerificationCode] = useState(initialCode);
   const [verifying, setVerifying] = useState(false);
   const [result, setResult] = useState(null);
   const [verifyError, setVerifyError] = useState("");
@@ -1578,6 +1625,10 @@ function Verify({ onBack }) {
       setVerifying(false);
     }
   }
+
+  useEffect(() => {
+    if (initialCode) handleVerify();
+  }, []);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#000000] p-4">
