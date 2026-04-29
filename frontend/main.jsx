@@ -1334,7 +1334,13 @@ function Generate({ data, session, refresh, onViewCertificate }) {
         <div className="mb-6 rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6">
           <form onSubmit={handleSubmit}>
             <FormField label="Recipient" required>
-              <Select name="recipientId" required options={[{ value: "", label: "Select a recipient" }, ...data.recipients.map((recipient) => ({ value: recipient.id, label: `${recipient.fullName} - ${recipient.courseName || recipient.email}` }))]} />
+              <Select
+                name="recipientId"
+                required
+                searchable
+                searchPlaceholder="Search recipients..."
+                options={[{ value: "", label: "Select a recipient" }, ...data.recipients.map((recipient) => ({ value: recipient.id, label: `${recipient.fullName} - ${recipient.courseName || recipient.email}` }))]}
+              />
             </FormField>
             <FormField label="Certificate Title" required><Input name="certificateTitle" placeholder="Certificate of Completion" required /></FormField>
             <FormField label="Signatory" required>
@@ -1796,16 +1802,31 @@ function Textarea({ className = "", ...props }) {
   return <textarea {...props} className={`w-full resize-none rounded border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 text-sm text-[#FFE8DB] placeholder:text-[#5a5a5a] focus:border-[#5682B1] focus:outline-none ${className}`} />;
 }
 
-function Select({ options, className = "", value, defaultValue = "", onChange, name, required, disabled }) {
+function Select({ options, className = "", value, defaultValue = "", onChange, name, required, disabled, searchable = false, searchPlaceholder = "Search..." }) {
   const [open, setOpen] = useState(false);
   const [internalValue, setInternalValue] = useState(value ?? defaultValue ?? "");
+  const [searchTerm, setSearchTerm] = useState("");
   const wrapperRef = useRef(null);
+  const searchInputRef = useRef(null);
   const selectedValue = value ?? internalValue;
   const selectedOption = options.find((option) => String(option.value) === String(selectedValue)) || options[0];
+  const filteredOptions = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!searchable || !query) return options;
+    return options.filter((option) => String(option.value) === "" || String(option.label || "").toLowerCase().includes(query));
+  }, [options, searchTerm, searchable]);
 
   useEffect(() => {
     if (value !== undefined) setInternalValue(value);
   }, [value]);
+
+  useEffect(() => {
+    if (!open) {
+      setSearchTerm("");
+      return;
+    }
+    if (searchable) setTimeout(() => searchInputRef.current?.focus(), 0);
+  }, [open, searchable]);
 
   useEffect(() => {
     function handlePointerDown(event) {
@@ -1821,11 +1842,13 @@ function Select({ options, className = "", value, defaultValue = "", onChange, n
     setInternalValue(option.value);
     onChange?.(option.value);
     setOpen(false);
+    setSearchTerm("");
   }
 
   function handleKeyDown(event) {
     if (disabled) return;
-    const currentIndex = Math.max(0, options.findIndex((option) => String(option.value) === String(selectedValue)));
+    const activeOptions = filteredOptions.length ? filteredOptions : options;
+    const currentIndex = Math.max(0, activeOptions.findIndex((option) => String(option.value) === String(selectedValue)));
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       setOpen((current) => !current);
@@ -1834,8 +1857,8 @@ function Select({ options, className = "", value, defaultValue = "", onChange, n
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const direction = event.key === "ArrowDown" ? 1 : -1;
-      const nextIndex = (currentIndex + direction + options.length) % options.length;
-      choose(options[nextIndex]);
+      const nextIndex = (currentIndex + direction + activeOptions.length) % activeOptions.length;
+      choose(activeOptions[nextIndex]);
     }
   }
 
@@ -1860,7 +1883,26 @@ function Select({ options, className = "", value, defaultValue = "", onChange, n
       </button>
       {open && (
         <div className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded border border-[#2a2a2a] bg-[#0a0a0a] py-1 shadow-[0_12px_30px_rgba(0,0,0,0.45)]" role="listbox">
-          {options.map((option) => {
+          {searchable && (
+            <div className="sticky top-0 z-10 border-b border-[#2a2a2a] bg-[#0a0a0a] p-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#739EC9]" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setOpen(false);
+                    event.stopPropagation();
+                  }}
+                  placeholder={searchPlaceholder}
+                  className={inputClass("h-9 pl-9")}
+                />
+              </div>
+            </div>
+          )}
+          {filteredOptions.map((option) => {
             const selected = String(option.value) === String(selectedValue);
             return (
               <button
@@ -1877,6 +1919,9 @@ function Select({ options, className = "", value, defaultValue = "", onChange, n
               </button>
             );
           })}
+          {filteredOptions.length === 0 && (
+            <div className="px-3 py-4 text-center text-sm text-[#9a9a9a]">No matches found</div>
+          )}
         </div>
       )}
     </div>
