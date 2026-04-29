@@ -818,6 +818,15 @@ function Courses({ data, session, refresh, confirmAction }) {
   }
 
   const rows = filterRows(data.courses, searchQuery, ["name", "description"]);
+  const enrolledByCourseId = useMemo(() => {
+    const counts = new Map();
+    data.recipients.forEach((recipient) => {
+      if (!recipient.courseId) return;
+      const key = String(recipient.courseId);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+  }, [data.recipients]);
   const columns = [
     { key: "name", label: "Course Name", width: "25%" },
     { key: "description", label: "Description", width: "35%" },
@@ -869,7 +878,7 @@ function Courses({ data, session, refresh, confirmAction }) {
             <td className="px-4 py-3 text-sm text-[#9a9a9a]">{course.description}</td>
             <td className="px-4 py-3 text-sm text-[#9a9a9a]">{course.duration || "--"}</td>
             <td className="px-4 py-3 text-sm text-[#FFE8DB]">{course.minScore ?? course.eligibilityScore ?? "--"}</td>
-            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{course.enrolled ?? 0}</td>
+            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{enrolledByCourseId.get(String(course.id)) || 0}</td>
             <td className="px-4 py-3">
               <RowActionMenu
                 menuTitle="Course actions"
@@ -1321,6 +1330,39 @@ function Generate({ data, session, refresh }) {
 
 function CertificateDetail({ certificateId, certificates, onBack, session }) {
   const certificate = certificates.find((cert) => cert.id === certificateId);
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState("");
+
+  useEffect(() => {
+    if (!certificate) return undefined;
+
+    let objectUrl = "";
+    let cancelled = false;
+
+    async function loadPdf() {
+      setPdfLoading(true);
+      setPdfError("");
+      setPdfUrl("");
+      try {
+        const blob = await api(`/api/certificates/download/${certificate.id}`, {}, session);
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPdfUrl(objectUrl);
+      } catch (error) {
+        if (!cancelled) setPdfError(readError(error));
+      } finally {
+        if (!cancelled) setPdfLoading(false);
+      }
+    }
+
+    loadPdf();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [certificate?.id, session.token]);
 
   async function download() {
     if (!certificate) return;
@@ -1345,21 +1387,29 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
       ) : (
         <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
-          <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-8">
-            <div className="flex aspect-[1.414/1] items-center justify-center rounded border border-[#2a2a2a] bg-[#1a1a1a]">
-              <div className="text-center">
-                <Award className="mx-auto mb-4 h-12 w-12 text-[#FFE8DB]" />
-                <h2 className="mb-2 text-xl font-medium text-[#FFE8DB]">{certificate.certificateTitle}</h2>
-                <p className="mb-1 text-lg text-[#FFE8DB]">{certificate.recipientName}</p>
-                <p className="mb-4 text-sm text-[#9a9a9a]">{certificate.courseName}</p>
-                <p className="font-mono text-xs text-[#739EC9]">{certificate.uniqueCode}</p>
-                <div className="mt-8 border-t border-[#2a2a2a] pt-8">
-                  <div className="text-sm text-[#9a9a9a]">
-                    <p className="mb-1">{certificate.signatoryName || "--"}</p>
-                    <p className="text-xs">{certificate.signatoryTitle || "--"}</p>
+          <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-3">
+            <div className="min-h-[520px] overflow-hidden rounded border border-[#2a2a2a] bg-[#1a1a1a]">
+              {pdfLoading && (
+                <div className="flex min-h-[520px] items-center justify-center text-sm text-[#739EC9]">
+                  Loading certificate PDF...
+                </div>
+              )}
+              {pdfError && (
+                <div className="flex min-h-[520px] items-center justify-center p-6 text-center">
+                  <div>
+                    <AlertCircle className="mx-auto mb-3 h-8 w-8 text-[#dc2626]" />
+                    <p className="mb-2 text-sm text-[#FFE8DB]">Unable to load certificate PDF</p>
+                    <p className="text-xs text-[#9a9a9a]">{pdfError}</p>
                   </div>
                 </div>
-              </div>
+              )}
+              {pdfUrl && !pdfLoading && !pdfError && (
+                <iframe
+                  title={`${displayCertificateId(certificate)} PDF`}
+                  src={pdfUrl}
+                  className="h-[72vh] min-h-[520px] w-full bg-[#1a1a1a]"
+                />
+              )}
             </div>
           </div>
         </div>
