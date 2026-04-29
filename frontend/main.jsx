@@ -646,6 +646,7 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
     });
     return lookup;
   }, [data.certificates]);
+  const editingRecipientCertificate = editingRecipient ? certificateByRecipientId.get(String(editingRecipient.id)) : null;
 
   const rows = filterRows(data.recipients, searchQuery, ["fullName", "email", "courseName"]);
   const columns = [
@@ -688,15 +689,20 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
       {editingRecipient && (
         <Panel title={`Edit ${editingRecipient.fullName}`}>
           <form key={editingRecipient.id} onSubmit={handleEdit}>
+            {editingRecipientCertificate && (
+              <div className="mb-4 rounded border border-[#5682B1]/30 bg-[#5682B1]/10 p-3 text-xs text-[#739EC9]">
+                Course, score, grade, and completion date are locked because this recipient already has a certificate.
+              </div>
+            )}
             <div className="grid gap-4 md:grid-cols-2">
               <FormField label="Full Name" required><Input name="fullName" defaultValue={editingRecipient.fullName} required /></FormField>
               <FormField label="Email" required><Input name="email" type="email" defaultValue={editingRecipient.email} required /></FormField>
               <FormField label="Course" required>
-                <Select name="courseId" required defaultValue={editingRecipient.courseId} options={[{ value: "", label: "Select a course" }, ...data.courses.map((course) => ({ value: course.id, label: course.name }))]} />
+                <Select name="courseId" required disabled={Boolean(editingRecipientCertificate)} defaultValue={editingRecipient.courseId} options={[{ value: "", label: "Select a course" }, ...data.courses.map((course) => ({ value: course.id, label: course.name }))]} />
               </FormField>
-              <FormField label="Score" required><Input name="score" type="number" defaultValue={editingRecipient.score} required /></FormField>
-              <FormField label="Grade" required><Input name="grade" defaultValue={editingRecipient.grade} required /></FormField>
-              <FormField label="Completion Date" required><Input name="completionDate" type="date" defaultValue={formatDate(editingRecipient.completionDate)} required /></FormField>
+              <FormField label="Score" required><Input name="score" type="number" defaultValue={editingRecipient.score} readOnly={Boolean(editingRecipientCertificate)} required /></FormField>
+              <FormField label="Grade" required><Input name="grade" defaultValue={editingRecipient.grade} readOnly={Boolean(editingRecipientCertificate)} required /></FormField>
+              <FormField label="Completion Date" required><Input name="completionDate" type="date" defaultValue={formatDate(editingRecipient.completionDate)} readOnly={Boolean(editingRecipientCertificate)} required /></FormField>
             </div>
             <FormActions onCancel={() => setEditingRecipient(null)} submitLabel={busyRecipientId === editingRecipient.id ? "Saving..." : "Save Changes"} disabled={busyRecipientId === editingRecipient.id} />
           </form>

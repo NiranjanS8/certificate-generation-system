@@ -6,6 +6,7 @@ import com.niranjan.certificates.entity.Course;
 import com.niranjan.certificates.entity.Organization;
 import com.niranjan.certificates.entity.Recipient;
 import com.niranjan.certificates.exception.ResourceNotFoundException;
+import com.niranjan.certificates.repository.CertificateRepository;
 import com.niranjan.certificates.repository.CourseRepository;
 import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.repository.RecipientRepository;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -26,6 +28,7 @@ public class RecipientServiceImpl implements RecipientService {
     private final RecipientRepository recipientRepository;
     private final OrganizationRepository organizationRepository;
     private final CourseRepository courseRepository;
+    private final CertificateRepository certificateRepository;
 
     @Override
     @Transactional
@@ -76,12 +79,15 @@ public class RecipientServiceImpl implements RecipientService {
         Course course = courseRepository.findByIdAndOrganizationId(request.getCourseId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", request.getCourseId()));
 
+        LocalDate completionDate = parseDate(request.getCompletionDate());
+        validateCertificateLockedFields(orgId, recipient, course, request, completionDate);
+
         recipient.setCourse(course);
         recipient.setFullName(request.getFullName());
         recipient.setEmail(request.getEmail());
         recipient.setScore(request.getScore());
         recipient.setGrade(request.getGrade());
-        recipient.setCompletionDate(parseDate(request.getCompletionDate()));
+        recipient.setCompletionDate(completionDate);
 
         Recipient saved = recipientRepository.save(recipient);
         return mapToResponse(saved);
@@ -115,6 +121,24 @@ public class RecipientServiceImpl implements RecipientService {
         } catch (DateTimeParseException e) {
             throw new IllegalArgumentException(
                     "Invalid date format: '" + dateStr + "'. Expected format: yyyy-MM-dd");
+        }
+    }
+
+    private void validateCertificateLockedFields(UUID orgId, Recipient recipient, Course course,
+                                                 RecipientRequest request, LocalDate completionDate) {
+        if (!certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {
+            return;
+        }
+
+        boolean certificateDetailsChanged =
+                !Objects.equals(recipient.getCourse().getId(), course.getId())
+                        || !Objects.equals(recipient.getScore(), request.getScore())
+                        || !Objects.equals(recipient.getGrade(), request.getGrade())
+                        || !Objects.equals(recipient.getCompletionDate(), completionDate);
+
+        if (certificateDetailsChanged) {
+            throw new IllegalArgumentException(
+                    "Course, score, grade, and completion date cannot be changed after a certificate is issued.");
         }
     }
 }
