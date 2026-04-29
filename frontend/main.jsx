@@ -703,6 +703,9 @@ function Courses({ data, session, refresh }) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [editingCourse, setEditingCourse] = useState(null);
+  const [busyCourseId, setBusyCourseId] = useState("");
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -728,6 +731,58 @@ function Courses({ data, session, refresh }) {
     }
   }
 
+  async function handleEdit(event) {
+    event.preventDefault();
+    if (!editingCourse) return;
+    const form = new FormData(event.currentTarget);
+    setMessage("");
+    setBusyCourseId(editingCourse.id);
+    try {
+      await api(
+        `/api/courses/${editingCourse.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            name: form.get("name"),
+            description: form.get("description"),
+            minScore: Number(form.get("minScore") || 0),
+          }),
+        },
+        session,
+      );
+      setEditingCourse(null);
+      await refresh();
+      setMessage("Course updated.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setBusyCourseId("");
+    }
+  }
+
+  async function handleDelete(course) {
+    setOpenMenuId(null);
+    if (!window.confirm(`Deactivate ${course.name}? It will no longer appear in active course lists.`)) return;
+    setMessage("");
+    setBusyCourseId(course.id);
+    try {
+      await api(`/api/courses/${course.id}`, { method: "DELETE" }, session);
+      await refresh();
+      setMessage("Course deactivated.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setBusyCourseId("");
+    }
+  }
+
+  function startEdit(course) {
+    setOpenMenuId(null);
+    setShowForm(false);
+    setEditingCourse(course);
+    setMessage("");
+  }
+
   const rows = filterRows(data.courses, searchQuery, ["name", "description"]);
   const columns = [
     { key: "name", label: "Course Name", width: "25%" },
@@ -740,7 +795,11 @@ function Courses({ data, session, refresh }) {
 
   return (
     <div>
-      <PageHeader title="Courses" description="Manage available courses and certificate requirements" action={<Button onClick={() => setShowForm(!showForm)}><Plus className="h-4 w-4" />Add Course</Button>} />
+      <PageHeader title="Courses" description="Manage available courses and certificate requirements" action={<Button onClick={() => {
+        setShowForm(!showForm);
+        setEditingCourse(null);
+        setMessage("");
+      }}><Plus className="h-4 w-4" />Add Course</Button>} />
       {showForm && (
         <Panel title="New Course">
           <form onSubmit={handleSubmit}>
@@ -755,6 +814,17 @@ function Courses({ data, session, refresh }) {
           </form>
         </Panel>
       )}
+      {editingCourse && (
+        <Panel title={`Edit ${editingCourse.name}`}>
+          <form key={editingCourse.id} onSubmit={handleEdit}>
+            <FormField label="Course Name" required><Input name="name" defaultValue={editingCourse.name} required /></FormField>
+            <FormField label="Description"><Textarea name="description" rows={3} defaultValue={editingCourse.description || ""} /></FormField>
+            <FormField label="Eligibility Score" required><Input name="minScore" type="number" defaultValue={editingCourse.minScore ?? 0} required /></FormField>
+            <FormActions onCancel={() => setEditingCourse(null)} submitLabel={busyCourseId === editingCourse.id ? "Saving..." : "Save Changes"} disabled={busyCourseId === editingCourse.id} />
+          </form>
+        </Panel>
+      )}
+      {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("deactivated") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search courses by name or description..." />
       <Table
         columns={columns}
@@ -763,10 +833,22 @@ function Courses({ data, session, refresh }) {
           <tr key={course.id} className="transition-colors hover:bg-[#1a1a1a]">
             <td className="px-4 py-3 text-sm text-[#FFE8DB]">{course.name}</td>
             <td className="px-4 py-3 text-sm text-[#9a9a9a]">{course.description}</td>
-            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{course.duration || "12 weeks"}</td>
-            <td className="px-4 py-3 text-sm text-[#FFE8DB]">{course.minScore ?? course.eligibilityScore ?? 70}</td>
+            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{course.duration || "--"}</td>
+            <td className="px-4 py-3 text-sm text-[#FFE8DB]">{course.minScore ?? course.eligibilityScore ?? "--"}</td>
             <td className="px-4 py-3 text-sm text-[#9a9a9a]">{course.enrolled ?? 0}</td>
-            <td className="px-4 py-3"><IconButton title="Course actions" icon={MoreVertical} /></td>
+            <td className="px-4 py-3">
+              <RowActionMenu
+                menuTitle="Course actions"
+                open={openMenuId === course.id}
+                onToggle={() => setOpenMenuId((current) => (current === course.id ? null : course.id))}
+                onClose={() => setOpenMenuId(null)}
+                editLabel="Edit course"
+                onEdit={() => startEdit(course)}
+                deleteLabel="Deactivate course"
+                onDelete={() => handleDelete(course)}
+                disabled={busyCourseId === course.id}
+              />
+            </td>
           </tr>
         )}
       />
@@ -779,6 +861,9 @@ function Signatories({ data, session, refresh }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
   const [signatureName, setSignatureName] = useState("");
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [editingSignatory, setEditingSignatory] = useState(null);
+  const [busySignatoryId, setBusySignatoryId] = useState("");
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -800,6 +885,69 @@ function Signatories({ data, session, refresh }) {
     }
   }
 
+  async function handleEdit(event) {
+    event.preventDefault();
+    if (!editingSignatory) return;
+    const form = new FormData(event.currentTarget);
+    setMessage("");
+    setBusySignatoryId(editingSignatory.id);
+    try {
+      await api(
+        `/api/signatories/${editingSignatory.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ name: form.get("name"), title: form.get("title") }),
+        },
+        session,
+      );
+      setEditingSignatory(null);
+      await refresh();
+      setMessage("Signatory updated.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setBusySignatoryId("");
+    }
+  }
+
+  async function handleSetDefault(signatory) {
+    setOpenMenuId(null);
+    setMessage("");
+    setBusySignatoryId(signatory.id);
+    try {
+      await api(`/api/signatories/${signatory.id}/default`, { method: "PATCH" }, session);
+      await refresh();
+      setMessage("Default signatory updated.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setBusySignatoryId("");
+    }
+  }
+
+  async function handleDelete(signatory) {
+    setOpenMenuId(null);
+    if (!window.confirm(`Delete ${signatory.name}? This cannot be undone.`)) return;
+    setMessage("");
+    setBusySignatoryId(signatory.id);
+    try {
+      await api(`/api/signatories/${signatory.id}`, { method: "DELETE" }, session);
+      await refresh();
+      setMessage("Signatory deleted.");
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setBusySignatoryId("");
+    }
+  }
+
+  function startEdit(signatory) {
+    setOpenMenuId(null);
+    setShowForm(false);
+    setEditingSignatory(signatory);
+    setMessage("");
+  }
+
   const rows = filterRows(data.signatories, searchQuery, ["name", "title"]);
   const columns = [
     { key: "name", label: "Name", width: "30%" },
@@ -811,7 +959,11 @@ function Signatories({ data, session, refresh }) {
 
   return (
     <div>
-      <PageHeader title="Signatories" description="Manage authorized signatories for certificate validation" action={<Button onClick={() => setShowForm(!showForm)}><Plus className="h-4 w-4" />Add Signatory</Button>} />
+      <PageHeader title="Signatories" description="Manage authorized signatories for certificate validation" action={<Button onClick={() => {
+        setShowForm(!showForm);
+        setEditingSignatory(null);
+        setMessage("");
+      }}><Plus className="h-4 w-4" />Add Signatory</Button>} />
       {showForm && (
         <Panel title="New Signatory">
           <form onSubmit={handleSubmit}>
@@ -828,6 +980,18 @@ function Signatories({ data, session, refresh }) {
           </form>
         </Panel>
       )}
+      {editingSignatory && (
+        <Panel title={`Edit ${editingSignatory.name}`}>
+          <form key={editingSignatory.id} onSubmit={handleEdit}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField label="Full Name" required><Input name="name" defaultValue={editingSignatory.name} required /></FormField>
+              <FormField label="Title" required><Input name="title" defaultValue={editingSignatory.title} required /></FormField>
+            </div>
+            <FormActions onCancel={() => setEditingSignatory(null)} submitLabel={busySignatoryId === editingSignatory.id ? "Saving..." : "Save Changes"} disabled={busySignatoryId === editingSignatory.id} />
+          </form>
+        </Panel>
+      )}
+      {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("deleted") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search signatories by name or title..." />
       <Table
         columns={columns}
@@ -835,14 +999,34 @@ function Signatories({ data, session, refresh }) {
         renderRow={(signatory) => (
           <tr key={signatory.id} className="transition-colors hover:bg-[#1a1a1a]">
             <td className="px-4 py-3 text-sm text-[#FFE8DB]">{signatory.name}</td>
-            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{signatory.title}</td>
+            <td className="px-4 py-3 text-sm text-[#9a9a9a]">
+              <div className="flex items-center gap-2">
+                <span>{signatory.title}</span>
+                {signatory.isDefault && <StatusBadge status="active" />}
+              </div>
+            </td>
             <td className="px-4 py-3">
               <div className="flex h-8 w-32 items-center justify-center rounded border border-[#2a2a2a] bg-[#1a1a1a]">
                 <span className="text-xs text-[#9a9a9a]">Signature Preview</span>
               </div>
             </td>
-            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{formatDate(signatory.addedDate)}</td>
-            <td className="px-4 py-3"><IconButton title="Signatory actions" icon={MoreVertical} /></td>
+            <td className="px-4 py-3 text-sm text-[#9a9a9a]">{formatDate(signatory.addedDate || signatory.createdAt)}</td>
+            <td className="px-4 py-3">
+              <RowActionMenu
+                menuTitle="Signatory actions"
+                open={openMenuId === signatory.id}
+                onToggle={() => setOpenMenuId((current) => (current === signatory.id ? null : signatory.id))}
+                onClose={() => setOpenMenuId(null)}
+                editLabel="Edit signatory"
+                onEdit={() => startEdit(signatory)}
+                secondaryActionLabel="Set as default"
+                secondaryActionIcon={CheckCircle}
+                onSecondaryAction={signatory.isDefault ? null : () => handleSetDefault(signatory)}
+                deleteLabel="Delete signatory"
+                onDelete={() => handleDelete(signatory)}
+                disabled={busySignatoryId === signatory.id}
+              />
+            </td>
           </tr>
         )}
       />
@@ -1455,10 +1639,25 @@ function IconButton({ title, icon: Icon, onClick }) {
   );
 }
 
-function RowActionMenu({ open, onToggle, onClose, onEdit, onGenerate, onDelete, disabled }) {
+function RowActionMenu({
+  menuTitle = "Recipient actions",
+  open,
+  onToggle,
+  onClose,
+  onEdit,
+  onGenerate,
+  onDelete,
+  disabled,
+  editLabel = "Edit recipient",
+  secondaryActionLabel = "Generate certificate",
+  secondaryActionIcon: SecondaryActionIcon = Award,
+  onSecondaryAction,
+  deleteLabel = "Delete recipient",
+}) {
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const secondaryAction = onSecondaryAction || onGenerate;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -1493,7 +1692,7 @@ function RowActionMenu({ open, onToggle, onClose, onEdit, onGenerate, onDelete, 
   return (
     <div className="flex justify-end">
       <span ref={buttonRef}>
-        <IconButton title="Recipient actions" icon={MoreVertical} onClick={onToggle} />
+        <IconButton title={menuTitle} icon={MoreVertical} onClick={onToggle} />
       </span>
       {open && (
         <div
@@ -1502,13 +1701,15 @@ function RowActionMenu({ open, onToggle, onClose, onEdit, onGenerate, onDelete, 
           style={{ top: menuPosition.top, left: menuPosition.left }}
         >
           <button type="button" disabled={disabled} onClick={onEdit} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#FFE8DB] hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-50">
-            <PenTool className="h-4 w-4 text-[#739EC9]" />Edit recipient
+            <PenTool className="h-4 w-4 text-[#739EC9]" />{editLabel}
           </button>
-          <button type="button" disabled={disabled} onClick={onGenerate} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#FFE8DB] hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-50">
-            <Award className="h-4 w-4 text-[#739EC9]" />Generate certificate
-          </button>
+          {secondaryAction && (
+            <button type="button" disabled={disabled} onClick={secondaryAction} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#FFE8DB] hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-50">
+              <SecondaryActionIcon className="h-4 w-4 text-[#739EC9]" />{secondaryActionLabel}
+            </button>
+          )}
           <button type="button" disabled={disabled} onClick={onDelete} className="flex w-full items-center gap-2 border-t border-[#2a2a2a] px-3 py-2 text-left text-sm text-[#dc2626] hover:bg-[#dc2626]/10 disabled:cursor-not-allowed disabled:opacity-50">
-            <Trash2 className="h-4 w-4" />Delete recipient
+            <Trash2 className="h-4 w-4" />{deleteLabel}
           </button>
         </div>
       )}
