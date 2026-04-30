@@ -421,7 +421,7 @@ function Workspace({ currentPage, setCurrentPage, data, loading, session, refres
   if (currentPage === "recipients") return <Recipients data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} confirmAction={confirmAction} />;
   if (currentPage === "courses") return <Courses data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
   if (currentPage === "signatories") return <Signatories data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
-  if (currentPage === "certificates") return <Certificates data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} confirmAction={confirmAction} />;
+  if (currentPage === "certificates") return <Certificates data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} onNavigate={setCurrentPage} confirmAction={confirmAction} />;
   if (currentPage === "generate") return <Generate data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} />;
   return <SettingsPanel data={model} session={session} refresh={refresh} />;
 }
@@ -478,6 +478,10 @@ function Dashboard({ data, loading, onNavigate }) {
         <Table
           columns={columns}
           data={recentCertificates}
+          emptyIcon={FileText}
+          emptyTitle="No certificates yet"
+          emptyMessage="Generate your first certificate to start tracking recent activity here."
+          emptyAction={<Button variant="secondary" size="sm" onClick={() => onNavigate("generate")}>Generate Certificate</Button>}
           renderRow={(cert) => (
             <tr key={cert.id} className="transition-colors hover:bg-[#1a1a1a]">
               <td className="px-4 py-3 text-sm text-[#FFE8DB]">{displayCertificateId(cert)}</td>
@@ -661,6 +665,20 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
 
     return matchesCourse && matchesCertificate;
   });
+  const hasActiveRecipientFilters = Boolean(searchQuery.trim()) || courseFilter !== "all" || certificateFilter !== "all";
+
+  function clearRecipientFilters() {
+    setSearchQuery("");
+    setCourseFilter("all");
+    setCertificateFilter("all");
+  }
+
+  function openNewRecipientForm() {
+    setShowForm(true);
+    setEditingRecipient(null);
+    setGeneratingFor(null);
+    setMessage("");
+  }
 
   const courseOptions = [
     { value: "all", label: "All courses" },
@@ -687,10 +705,11 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
   return (
     <div>
       <PageHeader title="Recipients" description="Manage certificate recipients and their course completion records" action={<Button onClick={() => {
-        setShowForm(!showForm);
-        setEditingRecipient(null);
-        setGeneratingFor(null);
-        setMessage("");
+        if (showForm) {
+          setShowForm(false);
+        } else {
+          openNewRecipientForm();
+        }
       }}><Plus className="h-4 w-4" />Add Recipient</Button>} />
       {showForm && (
         <Panel title="New Recipient">
@@ -753,9 +772,27 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
         <Select value={courseFilter} onChange={setCourseFilter} options={courseOptions} />
         <Select value={certificateFilter} onChange={setCertificateFilter} options={certificateOptions} />
       </div>
+      <div className="mb-4 flex flex-col gap-3 text-xs text-[#9a9a9a] sm:flex-row sm:items-center sm:justify-between">
+        <p>
+          Showing <span className="text-[#FFE8DB]">{rows.length}</span> of <span className="text-[#FFE8DB]">{data.recipients.length}</span> recipients
+        </p>
+        <Button variant="ghost" size="sm" disabled={!hasActiveRecipientFilters} onClick={clearRecipientFilters}>
+          Clear filters
+        </Button>
+      </div>
       <Table
         columns={columns}
         data={rows}
+        emptyIcon={Users}
+        emptyTitle={data.recipients.length === 0 ? "No recipients yet" : "No recipients match these filters"}
+        emptyMessage={data.recipients.length === 0 ? "Add a recipient with course completion details before generating certificates." : "Adjust the search, course, or certificate status filters to widen the results."}
+        emptyAction={
+          data.recipients.length === 0 ? (
+            <Button variant="secondary" size="sm" onClick={openNewRecipientForm}>Add Recipient</Button>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={clearRecipientFilters}>Clear filters</Button>
+          )
+        }
         renderRow={(recipient) => {
           const certificate = certificateByRecipientId.get(String(recipient.id));
           return (
@@ -881,6 +918,12 @@ function Courses({ data, session, refresh, confirmAction }) {
     setMessage("");
   }
 
+  function openNewCourseForm() {
+    setShowForm(true);
+    setEditingCourse(null);
+    setMessage("");
+  }
+
   const rows = filterRows(data.courses, searchQuery, ["name", "description"]);
   const enrolledByCourseId = useMemo(() => {
     const counts = new Map();
@@ -902,9 +945,11 @@ function Courses({ data, session, refresh, confirmAction }) {
   return (
     <div>
       <PageHeader title="Courses" description="Manage available courses and certificate requirements" action={<Button onClick={() => {
-        setShowForm(!showForm);
-        setEditingCourse(null);
-        setMessage("");
+        if (showForm) {
+          setShowForm(false);
+        } else {
+          openNewCourseForm();
+        }
       }}><Plus className="h-4 w-4" />Add Course</Button>} />
       {showForm && (
         <Panel title="New Course">
@@ -932,6 +977,16 @@ function Courses({ data, session, refresh, confirmAction }) {
       <Table
         columns={columns}
         data={rows}
+        emptyIcon={BookOpen}
+        emptyTitle={data.courses.length === 0 ? "No courses yet" : "No courses match this search"}
+        emptyMessage={data.courses.length === 0 ? "Create a course with an eligibility score before enrolling recipients." : "Clear the search term to return to the full course list."}
+        emptyAction={
+          data.courses.length === 0 ? (
+            <Button variant="secondary" size="sm" onClick={openNewCourseForm}>Add Course</Button>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")}>Clear search</Button>
+          )
+        }
         renderRow={(course) => (
           <tr key={course.id} className="transition-colors hover:bg-[#1a1a1a]">
             <td className="px-4 py-3 text-sm text-[#FFE8DB]">{course.name}</td>
@@ -1090,6 +1145,15 @@ function Signatories({ data, session, refresh, confirmAction }) {
     setMessage("");
   }
 
+  function openNewSignatoryForm() {
+    setShowForm(true);
+    setEditingSignatory(null);
+    setSignatureFile(null);
+    setSignatureName("");
+    setEditSignatureFile(null);
+    setMessage("");
+  }
+
   const rows = filterRows(data.signatories, searchQuery, ["name", "title"]);
   const columns = [
     { key: "name", label: "Name", width: "32%" },
@@ -1101,12 +1165,11 @@ function Signatories({ data, session, refresh, confirmAction }) {
   return (
     <div>
       <PageHeader title="Signatories" description="Manage authorized signatories for certificate validation" action={<Button onClick={() => {
-        setShowForm(!showForm);
-        setEditingSignatory(null);
-        setSignatureFile(null);
-        setSignatureName("");
-        setEditSignatureFile(null);
-        setMessage("");
+        if (showForm) {
+          setShowForm(false);
+        } else {
+          openNewSignatoryForm();
+        }
       }}><Plus className="h-4 w-4" />Add Signatory</Button>} />
       {showForm && (
         <Panel title="New Signatory">
@@ -1155,6 +1218,16 @@ function Signatories({ data, session, refresh, confirmAction }) {
       <Table
         columns={columns}
         data={rows}
+        emptyIcon={PenTool}
+        emptyTitle={data.signatories.length === 0 ? "No signatories yet" : "No signatories match this search"}
+        emptyMessage={data.signatories.length === 0 ? "Add an authorized signatory and upload a signature image for generated certificates." : "Clear the search term to return to the full signatory list."}
+        emptyAction={
+          data.signatories.length === 0 ? (
+            <Button variant="secondary" size="sm" onClick={openNewSignatoryForm}>Add Signatory</Button>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")}>Clear search</Button>
+          )
+        }
         renderRow={(signatory) => (
           <tr key={signatory.id} className="transition-colors hover:bg-[#1a1a1a]">
             <td className="px-4 py-3 text-sm text-[#FFE8DB]">{signatory.name}</td>
@@ -1190,7 +1263,7 @@ function Signatories({ data, session, refresh, confirmAction }) {
   );
 }
 
-function Certificates({ data, session, refresh, onViewCertificate, confirmAction }) {
+function Certificates({ data, session, refresh, onViewCertificate, onNavigate, confirmAction }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -1284,6 +1357,13 @@ function Certificates({ data, session, refresh, onViewCertificate, confirmAction
     setMessage("");
   }
 
+  const hasActiveCertificateFilters = Boolean(searchQuery.trim()) || filterStatus !== "all";
+
+  function clearCertificateFilters() {
+    setSearchQuery("");
+    setFilterStatus("all");
+  }
+
   return (
     <div>
       <PageHeader title="Certificate Registry" description="Complete registry of issued and revoked certificates" />
@@ -1321,6 +1401,16 @@ function Certificates({ data, session, refresh, onViewCertificate, confirmAction
       <Table
         columns={columns}
         data={filtered}
+        emptyIcon={FileText}
+        emptyTitle={certificates.length === 0 ? "No certificates generated" : "No certificates match these filters"}
+        emptyMessage={certificates.length === 0 ? "Generate a certificate for an eligible recipient to populate the registry." : "Adjust the search or status filter to widen the certificate registry results."}
+        emptyAction={
+          certificates.length === 0 ? (
+            <Button variant="secondary" size="sm" onClick={() => onNavigate("generate")}>Generate Certificate</Button>
+          ) : hasActiveCertificateFilters ? (
+            <Button variant="ghost" size="sm" onClick={clearCertificateFilters}>Clear filters</Button>
+          ) : null
+        }
         renderRow={(cert) => (
           <tr key={cert.id} className="transition-colors hover:bg-[#1a1a1a]">
             <td className="px-4 py-3 text-sm text-[#FFE8DB]">{displayCertificateId(cert)}</td>
@@ -2085,7 +2175,16 @@ function FileUpload({ label, accept, onFileSelect, preview }) {
   );
 }
 
-function Table({ columns, data, renderRow, emptyMessage = "No data available", pageSize = 10 }) {
+function Table({
+  columns,
+  data,
+  renderRow,
+  emptyIcon: EmptyIcon = FileText,
+  emptyTitle = "No data available",
+  emptyMessage = "There are no records to show yet.",
+  emptyAction,
+  pageSize = 10,
+}) {
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
   const pageStart = (page - 1) * pageSize;
@@ -2101,8 +2200,13 @@ function Table({ columns, data, renderRow, emptyMessage = "No data available", p
   if (data.length === 0) {
     return (
       <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a]">
-        <div className="p-12 text-center">
-          <p className="text-sm text-[#9a9a9a]">{emptyMessage}</p>
+        <div className="flex flex-col items-center p-12 text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded border border-[#5682B1]/30 bg-[#5682B1]/10 text-[#739EC9]">
+            <EmptyIcon className="h-5 w-5" />
+          </div>
+          <h3 className="mb-2 text-sm font-medium text-[#FFE8DB]">{emptyTitle}</h3>
+          <p className="max-w-md text-sm leading-6 text-[#9a9a9a]">{emptyMessage}</p>
+          {emptyAction && <div className="mt-5">{emptyAction}</div>}
         </div>
       </div>
     );
