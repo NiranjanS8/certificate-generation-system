@@ -80,3 +80,34 @@ button:disabled {
   background: #5682b1;
   color: #000000;
 }
+
+.toast-pop {
+  animation: toast-pop 180ms ease-out;
+}
+
+.toast-progress {
+  animation: toast-progress 3600ms linear forwards;
+  transform-origin: left;
+}
+
+@keyframes toast-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}

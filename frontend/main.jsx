@@ -82,6 +82,7 @@ function App() {
   const [authError, setAuthError] = useState("");
   const [apiError, setApiError] = useState("");
   const [confirmation, setConfirmation] = useState(null);
+  const [toast, setToast] = useState(null);
   const [data, setData] = useState({
     profile: null,
     certificates: [],
@@ -98,6 +99,16 @@ function App() {
   useEffect(() => {
     if (isAuthenticated) loadWorkspace();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timeout = window.setTimeout(() => setToast(null), 3600);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
+
+  function notify(message, tone = "success") {
+    setToast({ id: Date.now(), message, tone });
+  }
 
   async function loadWorkspace() {
     setLoading(true);
@@ -246,9 +257,11 @@ function App() {
             refresh={loadWorkspace}
             onViewCertificate={setSelectedCertificate}
             confirmAction={confirmAction}
+            notify={notify}
           />
         )}
       </main>
+      <Toast toast={toast} onClose={() => setToast(null)} />
       <ConfirmationDialog
         open={Boolean(confirmation)}
         title={confirmation?.title}
@@ -405,7 +418,7 @@ function Sidebar({ currentPage, onNavigate, profile, email, onLogout, mobileOpen
   );
 }
 
-function Workspace({ currentPage, setCurrentPage, data, loading, session, refresh, onViewCertificate, confirmAction }) {
+function Workspace({ currentPage, setCurrentPage, data, loading, session, refresh, onViewCertificate, confirmAction, notify }) {
   const model = useMemo(
     () => ({
       recipients: data.recipients || [],
@@ -418,12 +431,12 @@ function Workspace({ currentPage, setCurrentPage, data, loading, session, refres
   );
 
   if (currentPage === "dashboard") return <Dashboard data={model} loading={loading} onNavigate={setCurrentPage} />;
-  if (currentPage === "recipients") return <Recipients data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} confirmAction={confirmAction} />;
-  if (currentPage === "courses") return <Courses data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
-  if (currentPage === "signatories") return <Signatories data={model} session={session} refresh={refresh} confirmAction={confirmAction} />;
-  if (currentPage === "certificates") return <Certificates data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} onNavigate={setCurrentPage} confirmAction={confirmAction} />;
-  if (currentPage === "generate") return <Generate data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} />;
-  return <SettingsPanel data={model} session={session} refresh={refresh} />;
+  if (currentPage === "recipients") return <Recipients data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} confirmAction={confirmAction} notify={notify} />;
+  if (currentPage === "courses") return <Courses data={model} session={session} refresh={refresh} confirmAction={confirmAction} notify={notify} />;
+  if (currentPage === "signatories") return <Signatories data={model} session={session} refresh={refresh} confirmAction={confirmAction} notify={notify} />;
+  if (currentPage === "certificates") return <Certificates data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} onNavigate={setCurrentPage} confirmAction={confirmAction} notify={notify} />;
+  if (currentPage === "generate") return <Generate data={model} session={session} refresh={refresh} onViewCertificate={onViewCertificate} notify={notify} />;
+  return <SettingsPanel data={model} session={session} refresh={refresh} notify={notify} onNavigate={setCurrentPage} />;
 }
 
 function Dashboard({ data, loading, onNavigate }) {
@@ -497,7 +510,7 @@ function Dashboard({ data, loading, onNavigate }) {
   );
 }
 
-function Recipients({ data, session, refresh, onViewCertificate, confirmAction }) {
+function Recipients({ data, session, refresh, onViewCertificate, confirmAction, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [courseFilter, setCourseFilter] = useState("all");
@@ -507,6 +520,16 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
   const [editingRecipient, setEditingRecipient] = useState(null);
   const [generatingFor, setGeneratingFor] = useState(null);
   const [busyRecipientId, setBusyRecipientId] = useState("");
+  const generatePanelRef = useRef(null);
+
+  useEffect(() => {
+    if (!generatingFor) return undefined;
+    const timeout = window.setTimeout(() => {
+      generatePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      generatePanelRef.current?.focus({ preventScroll: true });
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [generatingFor]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -529,7 +552,8 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
         session,
       );
       setShowForm(false);
-      refresh();
+      await refresh();
+      notify("Recipient added.");
     } catch (error) {
       setMessage(readError(error));
     }
@@ -559,9 +583,9 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
       );
       setEditingRecipient(null);
       await refresh();
-      setMessage("Recipient updated.");
+      notify("Recipient updated.");
     } catch (error) {
-      setMessage(readError(error));
+      notify(readError(error), "error");
     } finally {
       setBusyRecipientId("");
     }
@@ -570,9 +594,9 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
   async function handleDelete(recipient) {
     setOpenMenuId(null);
     const confirmed = await confirmAction({
-      title: "Delete recipient",
-      message: `Delete ${recipient.fullName}? This cannot be undone.`,
-      confirmLabel: "Delete Recipient",
+      title: "Delete recipient?",
+      message: `${recipient.fullName} will be permanently removed. Existing generated certificates are not revoked, but this recipient record will no longer be available for editing.`,
+      confirmLabel: "Delete recipient",
       tone: "danger",
     });
     if (!confirmed) return;
@@ -581,9 +605,9 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
     try {
       await api(`/api/recipients/${recipient.id}`, { method: "DELETE" }, session);
       await refresh();
-      setMessage("Recipient deleted.");
+      notify("Recipient deleted.");
     } catch (error) {
-      setMessage(readError(error));
+      notify(readError(error), "error");
     } finally {
       setBusyRecipientId("");
     }
@@ -610,9 +634,9 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
       );
       setGeneratingFor(null);
       await refresh();
-      setMessage("Certificate generated.");
+      notify("Certificate generated.");
     } catch (error) {
-      setMessage(readError(error));
+      notify(readError(error), "error");
     } finally {
       setBusyRecipientId("");
     }
@@ -752,21 +776,22 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
         </Panel>
       )}
       {generatingFor && (
-        <Panel title={`Generate certificate for ${generatingFor.fullName}`}>
-          <form key={generatingFor.id} onSubmit={handleGenerate}>
-            <div className="mb-4 grid gap-4 md:grid-cols-2">
-              <Detail label="Recipient" value={generatingFor.fullName} />
-              <Detail label="Course" value={generatingFor.courseName || courseName(data.courses, generatingFor.courseId)} />
-            </div>
-            <FormField label="Certificate Title" required><Input name="certificateTitle" defaultValue="Certificate of Completion" required /></FormField>
-            <FormField label="Signatory" required>
-              <Select name="signatoryId" required options={[{ value: "", label: "Select a signatory" }, ...data.signatories.map((signatory) => ({ value: signatory.id, label: `${signatory.name} - ${signatory.title}` }))]} />
-            </FormField>
-            <FormActions onCancel={() => setGeneratingFor(null)} submitLabel={busyRecipientId === generatingFor.id ? "Generating..." : "Generate Certificate"} disabled={busyRecipientId === generatingFor.id} />
-          </form>
-        </Panel>
+        <div ref={generatePanelRef} tabIndex={-1} className="scroll-mt-20 outline-none">
+          <Panel title={`Generate certificate for ${generatingFor.fullName}`}>
+            <form key={generatingFor.id} onSubmit={handleGenerate}>
+              <div className="mb-4 grid gap-4 md:grid-cols-2">
+                <Detail label="Recipient" value={generatingFor.fullName} />
+                <Detail label="Course" value={generatingFor.courseName || courseName(data.courses, generatingFor.courseId)} />
+              </div>
+              <FormField label="Certificate Title" required><Input name="certificateTitle" defaultValue="Certificate of Completion" required /></FormField>
+              <FormField label="Signatory" required>
+                <Select name="signatoryId" required options={[{ value: "", label: "Select a signatory" }, ...data.signatories.map((signatory) => ({ value: signatory.id, label: `${signatory.name} - ${signatory.title}` }))]} />
+              </FormField>
+              <FormActions onCancel={() => setGeneratingFor(null)} submitLabel={busyRecipientId === generatingFor.id ? "Generating..." : "Generate Certificate"} disabled={busyRecipientId === generatingFor.id} />
+            </form>
+          </Panel>
+        </div>
       )}
-      {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("deleted") || message.includes("generated") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search recipients by name, email, or course..." />
       <div className="mb-4 grid gap-3 md:grid-cols-2">
         <Select value={courseFilter} onChange={setCourseFilter} options={courseOptions} />
@@ -828,7 +853,7 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
   );
 }
 
-function Courses({ data, session, refresh, confirmAction }) {
+function Courses({ data, session, refresh, confirmAction, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -854,7 +879,8 @@ function Courses({ data, session, refresh, confirmAction }) {
         session,
       );
       setShowForm(false);
-      refresh();
+      await refresh();
+      notify("Course added.");
     } catch (error) {
       setMessage(readError(error));
     }
@@ -881,9 +907,9 @@ function Courses({ data, session, refresh, confirmAction }) {
       );
       setEditingCourse(null);
       await refresh();
-      setMessage("Course updated.");
+      notify("Course updated.");
     } catch (error) {
-      setMessage(readError(error));
+      notify(readError(error), "error");
     } finally {
       setBusyCourseId("");
     }
@@ -892,9 +918,9 @@ function Courses({ data, session, refresh, confirmAction }) {
   async function handleDelete(course) {
     setOpenMenuId(null);
     const confirmed = await confirmAction({
-      title: "Deactivate course",
-      message: `Deactivate ${course.name}? It will no longer appear in active course lists.`,
-      confirmLabel: "Deactivate Course",
+      title: "Deactivate course?",
+      message: `${course.name} will be removed from active course lists. Existing recipients and certificates will keep their current course history.`,
+      confirmLabel: "Deactivate course",
       tone: "danger",
     });
     if (!confirmed) return;
@@ -903,9 +929,9 @@ function Courses({ data, session, refresh, confirmAction }) {
     try {
       await api(`/api/courses/${course.id}`, { method: "DELETE" }, session);
       await refresh();
-      setMessage("Course deactivated.");
+      notify("Course deactivated.");
     } catch (error) {
-      setMessage(readError(error));
+      notify(readError(error), "error");
     } finally {
       setBusyCourseId("");
     }
@@ -972,7 +998,6 @@ function Courses({ data, session, refresh, confirmAction }) {
           </form>
         </Panel>
       )}
-      {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("deactivated") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search courses by name or description..." />
       <Table
         columns={columns}
@@ -1013,7 +1038,7 @@ function Courses({ data, session, refresh, confirmAction }) {
   );
 }
 
-function Signatories({ data, session, refresh, confirmAction }) {
+function Signatories({ data, session, refresh, confirmAction, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -1054,7 +1079,7 @@ function Signatories({ data, session, refresh, confirmAction }) {
       setSignatureFile(null);
       setSignatureName("");
       await refresh();
-      setMessage("Signatory added.");
+      notify("Signatory added.");
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -1092,9 +1117,9 @@ function Signatories({ data, session, refresh, confirmAction }) {
       setEditingSignatory(null);
       setEditSignatureFile(null);
       await refresh();
-      setMessage("Signatory updated.");
+      notify("Signatory updated.");
     } catch (error) {
-      setMessage(readError(error));
+      notify(readError(error), "error");
     } finally {
       setBusySignatoryId("");
     }
@@ -1107,9 +1132,9 @@ function Signatories({ data, session, refresh, confirmAction }) {
     try {
       await api(`/api/signatories/${signatory.id}/default`, { method: "PATCH" }, session);
       await refresh();
-      setMessage("Default signatory updated.");
+      notify("Default signatory updated.");
     } catch (error) {
-      setMessage(readError(error));
+      notify(readError(error), "error");
     } finally {
       setBusySignatoryId("");
     }
@@ -1118,9 +1143,9 @@ function Signatories({ data, session, refresh, confirmAction }) {
   async function handleDelete(signatory) {
     setOpenMenuId(null);
     const confirmed = await confirmAction({
-      title: "Delete signatory",
-      message: `Delete ${signatory.name}? This cannot be undone.`,
-      confirmLabel: "Delete Signatory",
+      title: "Delete signatory?",
+      message: `${signatory.name} will be permanently removed and can no longer be selected for new certificates. Existing generated PDFs are not changed.`,
+      confirmLabel: "Delete signatory",
       tone: "danger",
     });
     if (!confirmed) return;
@@ -1129,9 +1154,9 @@ function Signatories({ data, session, refresh, confirmAction }) {
     try {
       await api(`/api/signatories/${signatory.id}`, { method: "DELETE" }, session);
       await refresh();
-      setMessage("Signatory deleted.");
+      notify("Signatory deleted.");
     } catch (error) {
-      setMessage(readError(error));
+      notify(readError(error), "error");
     } finally {
       setBusySignatoryId("");
     }
@@ -1213,7 +1238,6 @@ function Signatories({ data, session, refresh, confirmAction }) {
           </form>
         </Panel>
       )}
-      {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("deleted") || message.includes("added") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search signatories by name or title..." />
       <Table
         columns={columns}
@@ -1263,13 +1287,12 @@ function Signatories({ data, session, refresh, confirmAction }) {
   );
 }
 
-function Certificates({ data, session, refresh, onViewCertificate, onNavigate, confirmAction }) {
+function Certificates({ data, session, refresh, onViewCertificate, onNavigate, confirmAction, notify }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [openMenuId, setOpenMenuId] = useState(null);
   const [editingCertificate, setEditingCertificate] = useState(null);
   const [busyCertificateId, setBusyCertificateId] = useState("");
-  const [message, setMessage] = useState("");
   const certificates = data.certificates;
 
   const filtered = certificates.filter((cert) => {
@@ -1304,7 +1327,6 @@ function Certificates({ data, session, refresh, onViewCertificate, onNavigate, c
     event.preventDefault();
     if (!editingCertificate) return;
     const form = new FormData(event.currentTarget);
-    setMessage("");
     setBusyCertificateId(editingCertificate.id);
     try {
       await api(
@@ -1321,9 +1343,9 @@ function Certificates({ data, session, refresh, onViewCertificate, onNavigate, c
       );
       setEditingCertificate(null);
       await refresh();
-      setMessage("Certificate updated.");
+      notify("Certificate updated.");
     } catch (error) {
-      setMessage(readError(error));
+      notify(readError(error), "error");
     } finally {
       setBusyCertificateId("");
     }
@@ -1332,20 +1354,19 @@ function Certificates({ data, session, refresh, onViewCertificate, onNavigate, c
   async function handleRevoke(cert) {
     setOpenMenuId(null);
     const confirmed = await confirmAction({
-      title: "Revoke certificate",
-      message: `Revoke certificate ${displayCertificateId(cert)}? It will no longer verify publicly.`,
-      confirmLabel: "Revoke Certificate",
+      title: "Revoke certificate?",
+      message: `${displayCertificateId(cert)} will stop verifying publicly and remain in the registry with revoked status.`,
+      confirmLabel: "Revoke certificate",
       tone: "danger",
     });
     if (!confirmed) return;
-    setMessage("");
     setBusyCertificateId(cert.id);
     try {
       await api(`/api/certificates/${cert.id}/revoke`, { method: "PATCH" }, session);
       await refresh();
-      setMessage("Certificate revoked.");
+      notify("Certificate revoked.");
     } catch (error) {
-      setMessage(readError(error));
+      notify(readError(error), "error");
     } finally {
       setBusyCertificateId("");
     }
@@ -1354,7 +1375,6 @@ function Certificates({ data, session, refresh, onViewCertificate, onNavigate, c
   function startEdit(cert) {
     setOpenMenuId(null);
     setEditingCertificate(cert);
-    setMessage("");
   }
 
   const hasActiveCertificateFilters = Boolean(searchQuery.trim()) || filterStatus !== "all";
@@ -1381,7 +1401,6 @@ function Certificates({ data, session, refresh, onViewCertificate, onNavigate, c
           </form>
         </Panel>
       )}
-      {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("revoked") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
       <div className="mb-4 flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9a9a]" />
@@ -1449,7 +1468,7 @@ function Certificates({ data, session, refresh, onViewCertificate, onNavigate, c
   );
 }
 
-function Generate({ data, session, refresh, onViewCertificate }) {
+function Generate({ data, session, refresh, onViewCertificate, notify }) {
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState("");
   const [generatedCertificate, setGeneratedCertificate] = useState(null);
@@ -1490,7 +1509,7 @@ function Generate({ data, session, refresh, onViewCertificate }) {
       formElement.reset();
       await refresh();
       setGeneratedCertificate(certificate);
-      setMessage("Certificate generated.");
+      notify("Certificate generated.");
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -1518,10 +1537,10 @@ function Generate({ data, session, refresh, onViewCertificate }) {
             <FormField label="Signatory" required>
               <Select name="signatoryId" required options={[{ value: "", label: "Select a signatory" }, ...data.signatories.map((signatory) => ({ value: signatory.id, label: `${signatory.name} - ${signatory.title}` }))]} />
             </FormField>
-            {message && (
-              <div className={`mb-4 rounded border p-3 text-xs ${message.includes("generated") ? "border-[#5682B1]/30 bg-[#5682B1]/10 text-[#739EC9]" : "border-[#dc2626]/30 bg-[#dc2626]/10 text-[#dc2626]"}`}>
+            {(message || generatedCertificate) && (
+              <div className={`mb-4 rounded border p-3 text-xs ${generatedCertificate && !message ? "border-[#5682B1]/30 bg-[#5682B1]/10 text-[#739EC9]" : "border-[#dc2626]/30 bg-[#dc2626]/10 text-[#dc2626]"}`}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p>{message}</p>
+                  <p>{message || "Certificate is ready."}</p>
                   {generatedCertificate?.id && (
                     <Button type="button" variant="secondary" size="sm" onClick={() => onViewCertificate(generatedCertificate.id)}>
                       <Eye className="h-4 w-4" />
@@ -1643,65 +1662,92 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
           <p className="text-sm text-[#9a9a9a]">This certificate is not available in the current organization data.</p>
         </Panel>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-3">
-            <div className="min-h-[520px] overflow-hidden rounded border border-[#2a2a2a] bg-[#1a1a1a]">
-              {pdfLoading && (
-                <div className="flex min-h-[520px] items-center justify-center text-sm text-[#739EC9]">
-                  Loading certificate PDF...
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div>
+            <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-3">
+              <div className="min-h-[520px] overflow-hidden rounded border border-[#2a2a2a] bg-[#1a1a1a]">
+                {pdfLoading && (
+                  <div className="flex min-h-[520px] items-center justify-center text-sm text-[#739EC9]">
+                    Loading certificate PDF...
+                  </div>
+                )}
+                {pdfError && (
+                  <div className="flex min-h-[520px] items-center justify-center p-6 text-center">
+                    <div>
+                      <AlertCircle className="mx-auto mb-3 h-8 w-8 text-[#dc2626]" />
+                      <p className="mb-2 text-sm text-[#FFE8DB]">Unable to load certificate PDF</p>
+                      <p className="text-xs text-[#9a9a9a]">{pdfError}</p>
+                    </div>
+                  </div>
+                )}
+                {pdfUrl && !pdfLoading && !pdfError && (
+                  <iframe
+                    title={`${displayCertificateId(certificate)} PDF`}
+                    src={pdfUrl}
+                    className="h-[72vh] min-h-[520px] w-full bg-[#1a1a1a]"
+                  />
+                )}
+              </div>
+            </div>
+            <div className="mt-4 rounded border border-[#2a2a2a] bg-[#0a0a0a] p-4">
+              <div className="mb-4">
+                <DetailLabel>Actions</DetailLabel>
+                <p className="mt-1 text-sm text-[#9a9a9a]">Download the PDF or copy a public verification link.</p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button variant="primary" fullWidth onClick={download}><Download className="h-4 w-4" />Download PDF</Button>
+                <Button variant="secondary" fullWidth onClick={shareCertificate}><Share2 className="h-4 w-4" />Share Verification Link</Button>
+              </div>
+              {shareMessage && <p className="mt-3 text-xs text-[#739EC9]">{shareMessage}</p>}
+            </div>
+          </div>
+          <aside className="space-y-4 xl:sticky xl:top-8 xl:self-start">
+            <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <DetailLabel>Certificate</DetailLabel>
+                  <h2 className="mt-1 text-xl font-medium leading-7 text-[#FFE8DB]">{certificate.certificateTitle || "Certificate"}</h2>
                 </div>
-              )}
-              {pdfError && (
-                <div className="flex min-h-[520px] items-center justify-center p-6 text-center">
-                  <div>
-                    <AlertCircle className="mx-auto mb-3 h-8 w-8 text-[#dc2626]" />
-                    <p className="mb-2 text-sm text-[#FFE8DB]">Unable to load certificate PDF</p>
-                    <p className="text-xs text-[#9a9a9a]">{pdfError}</p>
+                <StatusBadge status={normalizeStatus(certificate.status)} />
+              </div>
+
+              <div className="mb-5 rounded border border-[#2a2a2a] bg-[#1a1a1a] p-4">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded border border-[#5682B1]/30 bg-[#5682B1]/10 text-[#739EC9]">
+                    <Award className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-[#FFE8DB]">{certificate.recipientName || "Recipient unavailable"}</p>
+                    <p className="truncate text-xs text-[#9a9a9a]">{certificate.courseName || "Course unavailable"}</p>
                   </div>
                 </div>
-              )}
-              {pdfUrl && !pdfLoading && !pdfError && (
-                <iframe
-                  title={`${displayCertificateId(certificate)} PDF`}
-                  src={pdfUrl}
-                  className="h-[72vh] min-h-[520px] w-full bg-[#1a1a1a]"
-                />
-              )}
+              </div>
+
+              <div className="space-y-4">
+                <Detail label="Certificate ID" value={displayCertificateId(certificate)} />
+                {certificate.uniqueCode && certificate.uniqueCode !== displayCertificateId(certificate) && (
+                  <Detail label="Verification Code" value={certificate.uniqueCode} mono />
+                )}
+                <Detail label="Issued Date" value={formatDate(certificate.issuedAt)} />
+                <Detail label="Completion Date" value={formatDate(certificate.completionDate)} />
+                <Detail label="Score / Grade" value={`${certificate.score ?? "--"} / ${certificate.grade || "--"}`} />
+              </div>
             </div>
-          </div>
-        </div>
-        <div>
-          <div className="mb-4 rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6">
-            <h3 className="mb-4 text-lg font-medium text-[#FFE8DB]">Certificate Details</h3>
-            <div className="space-y-4">
-              <Detail label="Certificate ID" value={displayCertificateId(certificate)} />
-              <div><DetailLabel>Status</DetailLabel><StatusBadge status={normalizeStatus(certificate.status)} /></div>
-              <Detail label="Verification Code" value={certificate.uniqueCode} mono />
-              <Detail label="Issued Date" value={formatDate(certificate.issuedAt)} />
-              <Detail label="Completion Date" value={formatDate(certificate.completionDate)} />
-              <Detail label="Score / Grade" value={`${certificate.score ?? "--"} / ${certificate.grade || "--"}`} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Button variant="primary" fullWidth onClick={download}><Download className="h-4 w-4" />Download PDF</Button>
-            <Button variant="secondary" fullWidth onClick={shareCertificate}><Share2 className="h-4 w-4" />Share Certificate</Button>
-            {shareMessage && <p className="text-center text-xs text-[#739EC9]">{shareMessage}</p>}
-          </div>
-        </div>
+          </aside>
         </div>
       )}
     </div>
   );
 }
 
-function SettingsPanel({ data, session, refresh }) {
+function SettingsPanel({ data, session, refresh, notify, onNavigate }) {
   const [saving, setSaving] = useState(false);
   const [logoName, setLogoName] = useState("");
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState("");
   const [message, setMessage] = useState("");
   const profile = data.profile || {};
+  const defaultSignatory = data.signatories.find((signatory) => signatory.isDefault);
 
   useEffect(() => {
     let objectUrl = "";
@@ -1766,7 +1812,7 @@ function SettingsPanel({ data, session, refresh }) {
       setLogoFile(null);
       setLogoName("");
       await refresh();
-      setMessage("Organization profile updated.");
+      notify("Organization profile updated.");
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -1775,37 +1821,97 @@ function SettingsPanel({ data, session, refresh }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full max-w-5xl">
       <PageHeader title="Organization Settings" description="Manage your organization profile and preferences" />
       <div>
-        <Panel title="Organization Profile">
-          <form onSubmit={handleSubmit}>
-            <FormField label="Organization Name" required><Input name="name" defaultValue={profile.name} required /></FormField>
-            <Detail label="Contact Email" value={profile.email || "--"} />
-            <div className="mt-4" />
-            <FormField label="Website"><Input name="website" type="url" defaultValue={profile.website} /></FormField>
-            <div className="mt-4">
-              {logoPreview && (
-                <div className="mb-4 rounded border border-[#2a2a2a] bg-[#1a1a1a] p-4">
-                  <p className="mb-3 text-xs uppercase tracking-wider text-[#9a9a9a]">{logoFile ? "Selected Logo Preview" : "Current Logo"}</p>
-                  <div className="flex h-24 items-center justify-center rounded border border-[#2a2a2a] bg-[#FFE8DB] p-3">
-                    <img src={logoPreview} alt={`${profile.name || "Organization"} logo`} className="max-h-full max-w-full object-contain" />
-                  </div>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <Panel title="Organization Profile">
+              <FormField label="Organization Name" required><Input name="name" defaultValue={profile.name} required /></FormField>
+              <Detail label="Contact Email" value={profile.email || "--"} />
+              <div className="mt-4" />
+              <FormField label="Website"><Input name="website" type="url" defaultValue={profile.website} /></FormField>
+              <div className="rounded border border-[#2a2a2a] bg-[#1a1a1a] p-4">
+                <p className="mb-2 text-xs uppercase tracking-wider text-[#9a9a9a]">Certificate use</p>
+                <p className="text-sm leading-6 text-[#FFE8DB]">
+                  Organization name, website, logo, and default signatory appear on generated certificate PDFs and public verification details.
+                </p>
+              </div>
+            </Panel>
+
+            <Panel title="Certificate Logo">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <DetailLabel>{logoFile ? "Selected logo" : "Current logo"}</DetailLabel>
+                  <p className="text-sm text-[#FFE8DB]">{logoPreview ? "Ready for certificates" : "No logo uploaded"}</p>
                 </div>
-              )}
-              <FileUpload label="Organization Logo" accept="image/png,image/jpeg,image/webp" onFileSelect={(file) => {
+                <StatusBadge status={logoPreview ? "active" : "inactive"} />
+              </div>
+              <div className={`mb-4 flex h-36 items-center justify-center rounded border p-4 ${logoPreview ? "border-[#2a2a2a] bg-[#FFE8DB]" : "border-dashed border-[#2a2a2a] bg-[#1a1a1a]"}`}>
+                {logoPreview ? (
+                  <img src={logoPreview} alt={`${profile.name || "Organization"} logo`} className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <div className="text-center">
+                    <Award className="mx-auto mb-3 h-8 w-8 text-[#739EC9]" />
+                    <p className="text-sm text-[#FFE8DB]">Certificate logo preview</p>
+                    <p className="mt-1 text-xs text-[#9a9a9a]">Upload a PNG, JPG, or WebP logo.</p>
+                  </div>
+                )}
+              </div>
+              <FileUpload label="Upload Organization Logo" accept="image/png,image/jpeg,image/webp" onFileSelect={(file) => {
                 setLogoFile(file || null);
                 setLogoName(file?.name || "");
-              }} preview={logoFile ? logoPreview : undefined} />
-              <p className="mt-2 text-xs text-[#9a9a9a]">This logo will appear on all generated certificates</p>
+              }} />
+              <p className="mt-2 text-xs text-[#9a9a9a]">Used on every generated certificate PDF.</p>
               {logoName && <p className="mt-1 text-xs text-[#739EC9]">{logoName}</p>}
+            </Panel>
+          </div>
+
+          {message && <p className="mb-4 text-xs text-[#dc2626]">{message}</p>}
+          <div className="mb-6 border-t border-[#2a2a2a] pt-6">
+            <Button type="submit" variant="primary" disabled={saving}>{saving ? "Saving Changes..." : "Save Changes"}</Button>
+          </div>
+        </form>
+
+        <Panel title="Certificate Signature">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
+            <div>
+              <div className="mb-3 flex items-center gap-3">
+                <StatusBadge status={defaultSignatory ? "active" : "inactive"} />
+                <p className="text-sm text-[#FFE8DB]">{defaultSignatory ? "Default signatory configured" : "No default signatory selected"}</p>
+              </div>
+              {defaultSignatory ? (
+                <div className="space-y-3">
+                  <Detail label="Signatory" value={defaultSignatory.name} />
+                  <Detail label="Title" value={defaultSignatory.title || "--"} />
+                </div>
+              ) : (
+                <p className="text-sm leading-6 text-[#9a9a9a]">
+                  Add a signatory, upload their signature image, and mark one as default before generating production certificates.
+                </p>
+              )}
             </div>
-            {message && <p className={`mt-4 text-xs ${message.includes("updated") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
-            <div className="mt-6 border-t border-[#2a2a2a] pt-6">
-              <Button type="submit" variant="primary" disabled={saving}>{saving ? "Saving Changes..." : "Save Changes"}</Button>
+            <div className="rounded border border-[#2a2a2a] bg-[#1a1a1a] p-4">
+              <DetailLabel>Signature preview</DetailLabel>
+              <div className="mt-3">
+                {defaultSignatory ? (
+                  <SignaturePreview signatory={defaultSignatory} session={session} />
+                ) : (
+                  <div className="flex h-10 w-36 items-center justify-center rounded border border-dashed border-[#2a2a2a]">
+                    <span className="text-xs text-[#9a9a9a]">Not configured</span>
+                  </div>
+                )}
+              </div>
             </div>
-          </form>
+          </div>
+          <div className="mt-5 border-t border-[#2a2a2a] pt-5">
+            <Button type="button" variant="secondary" onClick={() => onNavigate("signatories")}>
+              <PenTool className="h-4 w-4" />
+              Manage Signatories
+            </Button>
+          </div>
         </Panel>
+
         <div className="mt-6 rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6">
           <h3 className="mb-4 text-lg font-medium text-[#FFE8DB]">Organization Statistics</h3>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -1942,6 +2048,36 @@ function ConfirmationDialog({ open, title, message, confirmLabel = "Confirm", to
         <div className="flex justify-end gap-3 border-t border-[#2a2a2a] pt-5">
           <Button variant="secondary" onClick={onCancel}>Cancel</Button>
           <Button variant={isDanger ? "danger" : "primary"} onClick={onConfirm}>{confirmLabel}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Toast({ toast, onClose }) {
+  if (!toast) return null;
+  const isError = toast.tone === "error";
+  const Icon = isError ? AlertCircle : CheckCircle;
+  const label = isError ? "Action failed" : "Success";
+
+  return (
+    <div className="fixed right-4 top-4 z-[250] w-[calc(100vw-2rem)] max-w-sm sm:right-6 sm:top-6" role="status" aria-live="polite">
+      <div className={`toast-pop overflow-hidden rounded border bg-[#0a0a0a]/95 shadow-[0_20px_60px_rgba(0,0,0,0.62)] backdrop-blur ${isError ? "border-[#dc2626]/45" : "border-[#5682B1]/45"}`}>
+        <div className={`h-0.5 ${isError ? "bg-[#dc2626]" : "bg-[#739EC9]"}`} />
+        <div className="flex items-start gap-3 p-4">
+          <div className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border ${isError ? "border-[#dc2626]/35 bg-[#dc2626]/10 text-[#dc2626]" : "border-[#5682B1]/35 bg-[#5682B1]/10 text-[#739EC9]"}`}>
+            <Icon className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`mb-0.5 text-xs font-medium uppercase tracking-wider ${isError ? "text-[#dc2626]" : "text-[#739EC9]"}`}>{label}</p>
+            <p className="text-sm leading-6 text-[#FFE8DB]">{toast.message}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded p-1 text-[#9a9a9a] hover:bg-[#1a1a1a] hover:text-[#FFE8DB]" aria-label="Dismiss notification">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="h-0.5 bg-[#1a1a1a]">
+          <div className={`toast-progress h-full ${isError ? "bg-[#dc2626]" : "bg-[#5682B1]"}`} />
         </div>
       </div>
     </div>
