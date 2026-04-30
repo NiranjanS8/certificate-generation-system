@@ -496,6 +496,8 @@ function Dashboard({ data, loading, onNavigate }) {
 function Recipients({ data, session, refresh, onViewCertificate, confirmAction }) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [courseFilter, setCourseFilter] = useState("all");
+  const [certificateFilter, setCertificateFilter] = useState("all");
   const [message, setMessage] = useState("");
   const [openMenuId, setOpenMenuId] = useState(null);
   const [editingRecipient, setEditingRecipient] = useState(null);
@@ -648,7 +650,29 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
   }, [data.certificates]);
   const editingRecipientCertificate = editingRecipient ? certificateByRecipientId.get(String(editingRecipient.id)) : null;
 
-  const rows = filterRows(data.recipients, searchQuery, ["fullName", "email", "courseName"]);
+  const rows = filterRows(data.recipients, searchQuery, ["fullName", "email", "courseName"]).filter((recipient) => {
+    const certificate = certificateByRecipientId.get(String(recipient.id));
+    const certificateStatus = certificate ? normalizeStatus(certificate.status) : "not issued";
+    const matchesCourse = courseFilter === "all" || String(recipient.courseId) === String(courseFilter);
+    const matchesCertificate =
+      certificateFilter === "all" ||
+      certificateStatus === certificateFilter ||
+      (certificateFilter === "issued" && certificateStatus === "active");
+
+    return matchesCourse && matchesCertificate;
+  });
+
+  const courseOptions = [
+    { value: "all", label: "All courses" },
+    ...data.courses.map((course) => ({ value: course.id, label: course.name })),
+  ];
+  const certificateOptions = [
+    { value: "all", label: "All certificate statuses" },
+    { value: "issued", label: "Issued" },
+    { value: "not issued", label: "Not issued" },
+    { value: "revoked", label: "Revoked" },
+  ];
+
   const columns = [
     { key: "name", label: "Full Name", width: "18%" },
     { key: "email", label: "Email", width: "18%" },
@@ -725,6 +749,10 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction }
       )}
       {message && <p className={`mb-4 text-xs ${message.includes("updated") || message.includes("deleted") || message.includes("generated") ? "text-[#739EC9]" : "text-[#dc2626]"}`}>{message}</p>}
       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search recipients by name, email, or course..." />
+      <div className="mb-4 grid gap-3 md:grid-cols-2">
+        <Select value={courseFilter} onChange={setCourseFilter} options={courseOptions} />
+        <Select value={certificateFilter} onChange={setCertificateFilter} options={certificateOptions} />
+      </div>
       <Table
         columns={columns}
         data={rows}
