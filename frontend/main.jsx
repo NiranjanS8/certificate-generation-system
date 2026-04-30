@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Award,
   BookOpen,
+  Calendar,
   CheckCircle,
   ChevronDown,
   ChevronLeft,
@@ -716,7 +717,7 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction, 
               </FormField>
               <FormField label="Score" required><Input name="score" type="number" placeholder="95" required /></FormField>
               <FormField label="Grade" required><Input name="grade" placeholder="A" required /></FormField>
-              <FormField label="Completion Date" required><Input name="completionDate" type="date" required /></FormField>
+              <FormField label="Completion Date" required><DateInput name="completionDate" required /></FormField>
             </div>
             {message && <p className="mt-4 text-xs text-[#dc2626]">{message}</p>}
             <FormActions onCancel={() => setShowForm(false)} submitLabel="Add Recipient" />
@@ -739,7 +740,7 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction, 
               </FormField>
               <FormField label="Score" required><Input name="score" type="number" defaultValue={editingRecipient.score} readOnly={Boolean(editingRecipientCertificate)} required /></FormField>
               <FormField label="Grade" required><Input name="grade" defaultValue={editingRecipient.grade} readOnly={Boolean(editingRecipientCertificate)} required /></FormField>
-              <FormField label="Completion Date" required><Input name="completionDate" type="date" defaultValue={formatDate(editingRecipient.completionDate)} readOnly={Boolean(editingRecipientCertificate)} required /></FormField>
+              <FormField label="Completion Date" required><DateInput name="completionDate" defaultValue={formatDate(editingRecipient.completionDate)} readOnly={Boolean(editingRecipientCertificate)} required /></FormField>
             </div>
             <FormActions onCancel={() => setEditingRecipient(null)} submitLabel={busyRecipientId === editingRecipient.id ? "Saving..." : "Save Changes"} disabled={busyRecipientId === editingRecipient.id} />
           </form>
@@ -2153,6 +2154,128 @@ function Select({ options, className = "", value, defaultValue = "", onChange, n
   );
 }
 
+function DateInput({ name, defaultValue = "", value, onChange, required, disabled, readOnly }) {
+  const [open, setOpen] = useState(false);
+  const [internalValue, setInternalValue] = useState(defaultValue || "");
+  const wrapperRef = useRef(null);
+  const selectedValue = value ?? internalValue;
+  const selectedDate = parseDateValue(selectedValue);
+  const [viewDate, setViewDate] = useState(selectedDate || new Date());
+  const isLocked = disabled || readOnly;
+  const monthStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+  const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(monthStart);
+  const firstDay = monthStart.getDay();
+  const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+  const cells = [
+    ...Array.from({ length: firstDay }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => new Date(viewDate.getFullYear(), viewDate.getMonth(), index + 1)),
+  ];
+
+  useEffect(() => {
+    if (value !== undefined) setInternalValue(value || "");
+  }, [value]);
+
+  useEffect(() => {
+    if (selectedDate) setViewDate(selectedDate);
+  }, [selectedValue]);
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (wrapperRef.current?.contains(event.target)) return;
+      setOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  function commit(nextDate) {
+    const nextValue = formatDateValue(nextDate);
+    setInternalValue(nextValue);
+    onChange?.(nextValue);
+    setOpen(false);
+  }
+
+  function moveMonth(direction) {
+    setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + direction, 1));
+  }
+
+  const displayValue = selectedDate
+    ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(selectedDate)
+    : "Select date";
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      {name && <input type="hidden" name={name} value={selectedValue} />}
+      <button
+        type="button"
+        disabled={isLocked}
+        onClick={() => setOpen((current) => !current)}
+        className={`flex w-full items-center justify-between gap-3 rounded border px-3 py-2 text-left text-sm transition-colors ${
+          open ? "border-[#5682B1] bg-[#1a1a1a]" : "border-[#2a2a2a] bg-[#1a1a1a] hover:border-[#5682B1]/60"
+        } ${isLocked ? "cursor-not-allowed opacity-50" : ""}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        <span className={selectedDate ? "text-[#FFE8DB]" : "text-[#5a5a5a]"}>{displayValue}</span>
+        <Calendar className="h-4 w-4 text-[#739EC9]" />
+      </button>
+      {open && !isLocked && (
+        <div className="absolute z-50 mt-2 w-full min-w-[18rem] rounded border border-[#2a2a2a] bg-[#0a0a0a] p-3 shadow-[0_16px_40px_rgba(0,0,0,0.55)]">
+          <div className="mb-3 flex items-center justify-between">
+            <button type="button" onClick={() => moveMonth(-1)} className="rounded p-2 text-[#9a9a9a] hover:bg-[#1a1a1a] hover:text-[#FFE8DB]" aria-label="Previous month">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <p className="text-sm font-medium text-[#FFE8DB]">{monthLabel}</p>
+            <button type="button" onClick={() => moveMonth(1)} className="rounded p-2 text-[#9a9a9a] hover:bg-[#1a1a1a] hover:text-[#FFE8DB]" aria-label="Next month">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mb-2 grid grid-cols-7 gap-1">
+            {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+              <div key={`${day}-${index}`} className="py-1 text-center text-[0.65rem] uppercase tracking-wider text-[#9a9a9a]">{day}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {cells.map((date, index) => {
+              if (!date) return <div key={`blank-${index}`} />;
+              const dateValue = formatDateValue(date);
+              const selected = dateValue === selectedValue;
+              const today = dateValue === formatDateValue(new Date());
+              return (
+                <button
+                  type="button"
+                  key={dateValue}
+                  onClick={() => commit(date)}
+                  className={`flex h-9 items-center justify-center rounded text-sm transition-colors ${
+                    selected
+                      ? "bg-[#5682B1] text-[#000000]"
+                      : today
+                        ? "border border-[#5682B1]/50 text-[#FFE8DB] hover:bg-[#1a1a1a]"
+                        : "text-[#FFE8DB] hover:bg-[#1a1a1a]"
+                  }`}
+                >
+                  {date.getDate()}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-[#2a2a2a] pt-3">
+            <button type="button" onClick={() => commit(new Date())} className="text-xs text-[#739EC9] hover:text-[#FFE8DB]">Today</button>
+            {!required && (
+              <button type="button" onClick={() => {
+                setInternalValue("");
+                onChange?.("");
+                setOpen(false);
+              }} className="text-xs text-[#9a9a9a] hover:text-[#FFE8DB]">Clear</button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FileUpload({ label, accept, onFileSelect, preview }) {
   const [dragActive, setDragActive] = useState(false);
 
@@ -2465,6 +2588,20 @@ function StatBlock({ label, value }) {
 
 function inputClass(extra = "") {
   return `themed-input w-full rounded border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 text-sm text-[#FFE8DB] placeholder:text-[#5a5a5a] focus:border-[#5682B1] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${extra}`;
+}
+
+function parseDateValue(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return null;
+  const [year, month, day] = String(value).split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 createRoot(document.getElementById("root")).render(<App />);
