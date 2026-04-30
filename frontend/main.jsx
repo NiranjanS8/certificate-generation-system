@@ -28,41 +28,11 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import { api, appName, appTagline, emptySession, storageKey } from "./api/client.js";
+import { Button } from "./components/Button.jsx";
+import { ConfirmationDialog, Toast } from "./components/Feedback.jsx";
+import { capitalize, courseName, displayCertificateId, filterRows, formatDate, formatNumber, normalizeStatus, readError } from "./utils/format.js";
 import "./styles.css";
-
-const storageKey = "certificate-authority-session";
-const appName = "CertifyX";
-const appTagline = "Certificate Authority System";
-
-const emptySession = {
-  token: "",
-  refreshToken: "",
-  email: "",
-  orgId: "",
-};
-
-async function api(path, options = {}, session = emptySession) {
-  const headers = {
-    ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
-    ...(session.token ? { Authorization: `Bearer ${session.token}` } : {}),
-    ...options.headers,
-  };
-
-  const response = await fetch(path, { ...options, headers });
-  const contentType = response.headers.get("content-type") || "";
-  if (!response.ok) {
-    if (contentType.includes("application/json")) {
-      const payload = await response.json();
-      const fieldErrors = payload.errors ? Object.values(payload.errors).join(" ") : "";
-      throw new Error(payload.message || payload.error || fieldErrors || `Request failed with ${response.status}`);
-    }
-    const text = await response.text();
-    throw new Error(text || `Request failed with ${response.status}`);
-  }
-  if (response.status === 204) return null;
-  if (contentType.includes("application/pdf") || contentType.startsWith("image/") || contentType.includes("application/octet-stream")) return response.blob();
-  return response.json();
-}
 
 function App() {
   const initialVerificationCode = new URLSearchParams(window.location.search).get("verify") || "";
@@ -2010,99 +1980,6 @@ function Verify({ initialCode = "", onBack }) {
   );
 }
 
-function ConfirmationDialog({ open, title, message, confirmLabel = "Confirm", tone = "danger", onCancel, onConfirm }) {
-  useEffect(() => {
-    if (!open) return undefined;
-
-    function handleKeyDown(event) {
-      if (event.key === "Escape") onCancel();
-      if (event.key === "Enter") onConfirm();
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onCancel, onConfirm]);
-
-  if (!open) return null;
-
-  const isDanger = tone === "danger";
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" role="presentation" onMouseDown={onCancel}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirmation-title"
-        className="w-full max-w-md rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.65)]"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="mb-5 flex items-start gap-4">
-          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border ${isDanger ? "border-[#dc2626]/30 bg-[#dc2626]/10 text-[#dc2626]" : "border-[#5682B1]/30 bg-[#5682B1]/10 text-[#739EC9]"}`}>
-            <AlertCircle className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 id="confirmation-title" className="mb-2 text-lg font-medium text-[#FFE8DB]">{title}</h2>
-            <p className="text-sm leading-6 text-[#9a9a9a]">{message}</p>
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 border-t border-[#2a2a2a] pt-5">
-          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-          <Button variant={isDanger ? "danger" : "primary"} onClick={onConfirm}>{confirmLabel}</Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Toast({ toast, onClose }) {
-  if (!toast) return null;
-  const isError = toast.tone === "error";
-  const Icon = isError ? AlertCircle : CheckCircle;
-  const label = isError ? "Action failed" : "Success";
-
-  return (
-    <div className="fixed right-4 top-4 z-[250] w-[calc(100vw-2rem)] max-w-sm sm:right-6 sm:top-6" role="status" aria-live="polite">
-      <div className={`toast-pop overflow-hidden rounded border bg-[#0a0a0a]/95 shadow-[0_20px_60px_rgba(0,0,0,0.62)] backdrop-blur ${isError ? "border-[#dc2626]/45" : "border-[#5682B1]/45"}`}>
-        <div className={`h-0.5 ${isError ? "bg-[#dc2626]" : "bg-[#739EC9]"}`} />
-        <div className="flex items-start gap-3 p-4">
-          <div className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border ${isError ? "border-[#dc2626]/35 bg-[#dc2626]/10 text-[#dc2626]" : "border-[#5682B1]/35 bg-[#5682B1]/10 text-[#739EC9]"}`}>
-            <Icon className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className={`mb-0.5 text-xs font-medium uppercase tracking-wider ${isError ? "text-[#dc2626]" : "text-[#739EC9]"}`}>{label}</p>
-            <p className="text-sm leading-6 text-[#FFE8DB]">{toast.message}</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded p-1 text-[#9a9a9a] hover:bg-[#1a1a1a] hover:text-[#FFE8DB]" aria-label="Dismiss notification">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="h-0.5 bg-[#1a1a1a]">
-          <div className={`toast-progress h-full ${isError ? "bg-[#dc2626]" : "bg-[#5682B1]"}`} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Button({ children, onClick, variant = "primary", size = "md", disabled = false, type = "button", fullWidth = false }) {
-  const variants = {
-    primary: "bg-[#5682B1] text-[#000000] hover:bg-[#739EC9]",
-    secondary: "bg-[#1a1a1a] text-[#FFE8DB] border border-[#2a2a2a] hover:bg-[#2a2a2a]",
-    ghost: "text-[#FFE8DB] hover:bg-[#1a1a1a]",
-    danger: "bg-[#dc2626] text-[#FFE8DB] hover:bg-[#b91c1c]",
-  };
-  const sizes = {
-    sm: "px-3 py-1.5 text-xs",
-    md: "px-4 py-2 text-sm",
-    lg: "px-6 py-3 text-base",
-  };
-  return (
-    <button type={type} onClick={onClick} disabled={disabled} className={`inline-flex items-center justify-center gap-2 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${fullWidth ? "w-full" : ""}`}>
-      {children}
-    </button>
-  );
-}
-
 function PageHeader({ title, description, action }) {
   return (
     <div className="mb-6 flex items-start justify-between gap-4">
@@ -2588,63 +2465,6 @@ function StatBlock({ label, value }) {
 
 function inputClass(extra = "") {
   return `themed-input w-full rounded border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 text-sm text-[#FFE8DB] placeholder:text-[#5a5a5a] focus:border-[#5682B1] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${extra}`;
-}
-
-function filterRows(rows, query, keys) {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return rows;
-  return rows.filter((row) => keys.some((key) => String(row[key] || "").toLowerCase().includes(normalized)));
-}
-
-function normalizeStatus(status = "issued") {
-  const value = String(status).toLowerCase();
-  if (value === "issued") return "issued";
-  if (value === "revoked") return "revoked";
-  if (value === "active") return "active";
-  if (value === "inactive") return "inactive";
-  return "issued";
-}
-
-function formatNumber(value) {
-  return new Intl.NumberFormat("en-US").format(value || 0);
-}
-
-function formatDate(value) {
-  if (!value) return "--";
-  const stringValue = String(value);
-  if (/^\d{4}-\d{2}-\d{2}/.test(stringValue)) return stringValue.slice(0, 10);
-  try {
-    return new Intl.DateTimeFormat("en-CA").format(new Date(value));
-  } catch {
-    return stringValue;
-  }
-}
-
-function displayCertificateId(cert) {
-  return String(cert.id || "").startsWith("CERT-") ? cert.id : cert.uniqueCode || shortId(cert.id);
-}
-
-function courseName(courses, id) {
-  return courses.find((course) => String(course.id) === String(id))?.name || "Unassigned";
-}
-
-function shortId(value = "") {
-  return value ? `${String(value).slice(0, 4)}...${String(value).slice(-4)}` : "CERT-0000";
-}
-
-function capitalize(value) {
-  const text = String(value || "");
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function readError(error) {
-  if (!error?.message) return "Something went wrong.";
-  try {
-    const parsed = JSON.parse(error.message);
-    return parsed.message || parsed.error || error.message;
-  } catch {
-    return error.message;
-  }
 }
 
 createRoot(document.getElementById("root")).render(<App />);
