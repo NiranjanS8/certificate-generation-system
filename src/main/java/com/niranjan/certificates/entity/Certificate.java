@@ -14,10 +14,7 @@ import java.util.UUID;
 @Table(
         name = "certificates",
         uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_certificates_org_recipient",
-                        columnNames = {"org_id", "recipient_id"}
-                )
+                @UniqueConstraint(name = "uk_certificates_org_recipient", columnNames = {"org_id", "recipient_id"})
         }
 )
 @Data

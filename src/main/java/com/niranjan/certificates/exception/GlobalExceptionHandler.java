@@ -1,5 +1,6 @@
 package com.niranjan.certificates.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -57,6 +58,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString());
+
+        if (isCertificateRecipientDuplicate(ex)) {
+            body.put("status", HttpStatus.CONFLICT.value());
+            body.put("message", "A certificate has already been generated for this recipient.");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+        }
+
+        body.put("status", HttpStatus.BAD_REQUEST.value());
+        body.put("message", "The request conflicts with existing data.");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
     @ExceptionHandler({AuthenticationException.class, BadCredentialsException.class})
     public ResponseEntity<Map<String, Object>> handleAuthentication(Exception ex) {
         Map<String, Object> body = new HashMap<>();
@@ -91,5 +108,17 @@ public class GlobalExceptionHandler {
         body.put("message", "An unexpected error occurred");
         body.put("timestamp", LocalDateTime.now().toString());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
+    private boolean isCertificateRecipientDuplicate(DataIntegrityViolationException ex) {
+        Throwable current = ex;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains("uk_certificates_org_recipient")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

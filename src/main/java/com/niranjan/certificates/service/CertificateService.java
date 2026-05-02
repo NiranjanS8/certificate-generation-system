@@ -15,6 +15,10 @@ public interface CertificateService {
 
     CertificateResponse getById(UUID orgId, UUID id);
 
+    CertificateResponse update(UUID orgId, UUID id, CertificateRequest request);
+
+    CertificateResponse revoke(UUID orgId, UUID id);
+
     byte[] downloadPdf(UUID orgId, UUID id);
 
     String getUniqueCodeById(UUID orgId, UUID id);

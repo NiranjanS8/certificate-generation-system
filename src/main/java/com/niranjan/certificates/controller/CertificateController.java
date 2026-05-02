@@ -41,6 +41,19 @@ public class CertificateController {
         return ResponseEntity.ok(certificateService.getById(principal.getOrgId(), id));
     }
 
+    @PutMapping("/api/certificates/{id}")
+    public ResponseEntity<CertificateResponse> update(@AuthenticationPrincipal OrganizationPrincipal principal,
+                                                      @PathVariable UUID id,
+                                                      @Valid @RequestBody CertificateRequest request) {
+        return ResponseEntity.ok(certificateService.update(principal.getOrgId(), id, request));
+    }
+
+    @PatchMapping("/api/certificates/{id}/revoke")
+    public ResponseEntity<CertificateResponse> revoke(@AuthenticationPrincipal OrganizationPrincipal principal,
+                                                      @PathVariable UUID id) {
+        return ResponseEntity.ok(certificateService.revoke(principal.getOrgId(), id));
+    }
+
     @GetMapping("/api/certificates/download/{id}")
     public ResponseEntity<byte[]> download(@AuthenticationPrincipal OrganizationPrincipal principal,
                                            @PathVariable UUID id) {

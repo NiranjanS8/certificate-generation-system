@@ -9,6 +9,7 @@ import com.niranjan.certificates.service.OrganizationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -44,5 +45,12 @@ public class OrganizationController {
                                                            @RequestParam("file") MultipartFile file) {
         String logoUrl = fileStorageService.saveFile(file, "logos");
         return ResponseEntity.ok(organizationService.updateLogo(principal.getOrgId(), logoUrl));
+    }
+
+    @GetMapping("/logo")
+    public ResponseEntity<byte[]> getLogo(@AuthenticationPrincipal OrganizationPrincipal principal) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(organizationService.getLogoContentType(principal.getOrgId())))
+                .body(organizationService.getLogoImage(principal.getOrgId()));
     }
 }

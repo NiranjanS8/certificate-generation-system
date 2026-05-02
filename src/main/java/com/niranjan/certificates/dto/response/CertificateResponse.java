@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -20,6 +21,9 @@ public class CertificateResponse {
     private UUID signatoryId;
     private String recipientName;
     private String courseName;
+    private Integer score;
+    private String grade;
+    private LocalDate completionDate;
     private String certificateTitle;
     private String uniqueCode;
     private String fileUrl;

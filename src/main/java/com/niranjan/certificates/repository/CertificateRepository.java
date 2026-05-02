@@ -18,4 +18,6 @@ public interface CertificateRepository extends JpaRepository<Certificate, UUID> 
     boolean existsByUniqueCode(String uniqueCode);
 
     boolean existsByOrganizationIdAndRecipientId(UUID orgId, UUID recipientId);
+
+    boolean existsByOrganizationIdAndRecipientIdAndIdNot(UUID orgId, UUID recipientId, UUID id);
 }

@@ -36,6 +36,8 @@ public class CertificateServiceImpl implements CertificateService {
     private final SignatoryRepository signatoryRepository;
     private final PdfService pdfService;
 
+    private static final String DUPLICATE_RECIPIENT_CERTIFICATE_MESSAGE =
+            "A certificate has already been generated for this recipient.";
     private static final String ALPHANUMERIC = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -47,6 +49,10 @@ public class CertificateServiceImpl implements CertificateService {
 
         Recipient recipient = recipientRepository.findByIdAndOrganizationId(request.getRecipientId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipient", "id", request.getRecipientId()));
+
+        if (certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {
+            throw new DuplicateResourceException(DUPLICATE_RECIPIENT_CERTIFICATE_MESSAGE);
+        }
 
         Signatory signatory = signatoryRepository.findByIdAndOrganizationId(request.getSignatoryId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", request.getSignatoryId()));
@@ -114,6 +120,54 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = certificateRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Certificate", "id", id));
         return mapToResponse(certificate);
+    }
+
+    @Override
+    @Transactional
+    public CertificateResponse update(UUID orgId, UUID id, CertificateRequest request) {
+        Certificate certificate = certificateRepository.findByIdAndOrganizationId(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Certificate", "id", id));
+
+        Recipient recipient = recipientRepository.findByIdAndOrganizationId(request.getRecipientId(), orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recipient", "id", request.getRecipientId()));
+
+        if (certificateRepository.existsByOrganizationIdAndRecipientIdAndIdNot(orgId, recipient.getId(), id)) {
+            throw new DuplicateResourceException(DUPLICATE_RECIPIENT_CERTIFICATE_MESSAGE);
+        }
+
+        Signatory signatory = signatoryRepository.findByIdAndOrganizationId(request.getSignatoryId(), orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", request.getSignatoryId()));
+
+        Course course = recipient.getCourse();
+        if (course.getMinScore() != null && course.getMinScore() > 0) {
+            int recipientScore = recipient.getScore() != null ? recipient.getScore() : 0;
+            if (recipientScore < course.getMinScore()) {
+                throw new IneligibleRecipientException(
+                        recipient.getFullName(), recipientScore, course.getMinScore(), course.getName());
+            }
+        }
+
+        String filePath = pdfService.generateCertificate(certificate.getOrganization(), recipient, signatory,
+                request.getCertificateTitle(), certificate.getUniqueCode());
+
+        certificate.setRecipient(recipient);
+        certificate.setSignatory(signatory);
+        certificate.setCertificateTitle(request.getCertificateTitle());
+        certificate.setFileUrl(filePath);
+
+        Certificate saved = certificateRepository.save(certificate);
+        return mapToResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public CertificateResponse revoke(UUID orgId, UUID id) {
+        Certificate certificate = certificateRepository.findByIdAndOrganizationId(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Certificate", "id", id));
+
+        certificate.setStatus(CertificateStatus.REVOKED);
+        Certificate saved = certificateRepository.save(certificate);
+        return mapToResponse(saved);
     }
 
     @Override
@@ -194,6 +248,9 @@ public class CertificateServiceImpl implements CertificateService {
                 .signatoryId(certificate.getSignatory().getId())
                 .recipientName(certificate.getRecipient().getFullName())
                 .courseName(certificate.getRecipient().getCourse().getName())
+                .score(certificate.getRecipient().getScore())
+                .grade(certificate.getRecipient().getGrade())
+                .completionDate(certificate.getRecipient().getCompletionDate())
                 .certificateTitle(certificate.getCertificateTitle())
                 .uniqueCode(certificate.getUniqueCode())
                 .fileUrl(certificate.getFileUrl())

@@ -1,0 +1,113 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  font-size: 100%;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  background: #000000;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #000000;
+}
+
+button,
+input,
+select {
+  border-radius: 0.25rem;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.themed-input,
+.themed-select {
+  color-scheme: dark;
+}
+
+.themed-select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #739ec9 50%),
+    linear-gradient(135deg, #739ec9 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 13px) 50%;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2.25rem;
+}
+
+.themed-select option {
+  background: #0a0a0a;
+  color: #ffe8db;
+}
+
+.themed-input[type="date"] {
+  min-height: 2.375rem;
+}
+
+.themed-input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(68%) sepia(17%) saturate(1146%) hue-rotate(171deg) brightness(87%) contrast(86%);
+  opacity: 1;
+}
+
+.themed-input[type="date"]::-webkit-datetime-edit,
+.themed-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  color: #ffe8db;
+}
+
+::selection {
+  background: #5682b1;
+  color: #000000;
+}
+
+.toast-pop {
+  animation: toast-pop 180ms ease-out;
+}
+
+.toast-progress {
+  animation: toast-progress 3600ms linear forwards;
+  transform-origin: left;
+}
+
+@keyframes toast-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}

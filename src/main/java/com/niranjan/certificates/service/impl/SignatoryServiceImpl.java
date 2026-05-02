@@ -12,6 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
@@ -51,6 +55,37 @@ public class SignatoryServiceImpl implements SignatoryService {
         Signatory signatory = signatoryRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", id));
         return mapToResponse(signatory);
+    }
+
+    @Override
+    public byte[] getSignatureImage(UUID orgId, UUID id) {
+        Signatory signatory = signatoryRepository.findByIdAndOrganizationId(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", id));
+        if (signatory.getSignatureUrl() == null || signatory.getSignatureUrl().isBlank()) {
+            throw new ResourceNotFoundException("Signature", "signatoryId", id);
+        }
+        Path path = Paths.get(signatory.getSignatureUrl());
+        try {
+            return Files.readAllBytes(path);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read signature image file", e);
+        }
+    }
+
+    @Override
+    public String getSignatureContentType(UUID orgId, UUID id) {
+        Signatory signatory = signatoryRepository.findByIdAndOrganizationId(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", id));
+        if (signatory.getSignatureUrl() == null || signatory.getSignatureUrl().isBlank()) {
+            throw new ResourceNotFoundException("Signature", "signatoryId", id);
+        }
+        Path path = Paths.get(signatory.getSignatureUrl());
+        try {
+            String contentType = Files.probeContentType(path);
+            return contentType != null ? contentType : "application/octet-stream";
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to inspect signature image file", e);
+        }
     }
 
     @Override

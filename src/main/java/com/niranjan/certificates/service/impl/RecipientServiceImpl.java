@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -87,12 +88,15 @@ public class RecipientServiceImpl implements RecipientService {
                     "Cannot change recipient course after a certificate has been issued");
         }
 
+        LocalDate completionDate = parseDate(request.getCompletionDate());
+        validateCertificateLockedFields(orgId, recipient, course, request, completionDate);
+
         recipient.setCourse(course);
         recipient.setFullName(request.getFullName());
         recipient.setEmail(request.getEmail());
         recipient.setScore(request.getScore());
         recipient.setGrade(request.getGrade());
-        recipient.setCompletionDate(parseDate(request.getCompletionDate()));
+        recipient.setCompletionDate(completionDate);
 
         Recipient saved = recipientRepository.save(recipient);
         return mapToResponse(saved);
@@ -133,9 +137,21 @@ public class RecipientServiceImpl implements RecipientService {
         }
     }
 
-    private void validateActiveCourse(Course course) {
-        if (Boolean.FALSE.equals(course.getIsActive())) {
-            throw new IllegalArgumentException("Cannot assign recipient to inactive course: " + course.getName());
+    private void validateCertificateLockedFields(UUID orgId, Recipient recipient, Course course,
+                                                 RecipientRequest request, LocalDate completionDate) {
+        if (!certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {
+            return;
+        }
+
+        boolean certificateDetailsChanged =
+                !Objects.equals(recipient.getCourse().getId(), course.getId())
+                        || !Objects.equals(recipient.getScore(), request.getScore())
+                        || !Objects.equals(recipient.getGrade(), request.getGrade())
+                        || !Objects.equals(recipient.getCompletionDate(), completionDate);
+
+        if (certificateDetailsChanged) {
+            throw new IllegalArgumentException(
+                    "Course, score, grade, and completion date cannot be changed after a certificate is issued.");
         }
     }
 }
