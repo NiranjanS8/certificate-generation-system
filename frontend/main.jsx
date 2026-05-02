@@ -309,27 +309,99 @@ function PublicLanding({ onNavigateToLogin, onNavigateToRegister, onNavigateToVe
 }
 
 function LandingNavigation({ onNavigateToLogin, onNavigateToRegister }) {
+  const [activeSection, setActiveSection] = useState("features");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navItems = [
+    { id: "features", label: "Features" },
+    { id: "workflow", label: "Workflow" },
+    { id: "security", label: "Security" },
+    { id: "verification", label: "Verification" },
+  ];
+
+  useEffect(() => {
+    const sections = navItems.map((item) => document.getElementById(item.id)).filter(Boolean);
+    if (sections.length === 0) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target?.id) setActiveSection(visible.target.id);
+      },
+      { rootMargin: "-35% 0px -50% 0px", threshold: [0.1, 0.25, 0.5] },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
+  function linkClass(id, mobile = false) {
+    const active = activeSection === id;
+    if (mobile) {
+      return `rounded px-3 py-2 text-sm transition-colors ${active ? "bg-[#5682B1] text-[#000000]" : "text-[#9a9a9a] hover:bg-[#1a1a1a] hover:text-[#FFE8DB]"}`;
+    }
+    return `relative text-sm transition-colors after:absolute after:-bottom-2 after:left-1/2 after:h-0.5 after:w-4 after:-translate-x-1/2 after:rounded after:transition-opacity ${
+      active ? "text-[#FFE8DB] after:bg-[#5682B1] after:opacity-100" : "text-[#9a9a9a] after:opacity-0 hover:text-[#FFE8DB]"
+    }`;
+  }
+
+  function closeMobileMenu() {
+    setMobileMenuOpen(false);
+  }
+
   return (
     <nav className="fixed left-0 right-0 top-0 z-50 border-b border-[#2a2a2a] bg-[#000000]/95 backdrop-blur">
       <div className="mx-auto max-w-7xl px-6 py-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
+        <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
+          <div className="flex items-center justify-between gap-4 md:block">
             <div>
               <div className="text-lg font-semibold text-[#FFE8DB]">{appName}</div>
               <div className="text-xs text-[#9a9a9a]">{appTagline}</div>
             </div>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-              <a href="#features" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Features</a>
-              <a href="#workflow" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Workflow</a>
-              <a href="#verification" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Verification</a>
-              <a href="#security" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Security</a>
-            </div>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="flex h-10 w-10 items-center justify-center rounded border border-[#2a2a2a] text-[#FFE8DB] hover:bg-[#1a1a1a] md:hidden"
+              aria-label="Toggle home navigation"
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="hidden items-center justify-center gap-x-6 md:flex">
+            {navItems.map((item) => (
+              <a key={item.id} href={`#${item.id}`} className={linkClass(item.id)}>
+                {item.label}
+              </a>
+            ))}
+          </div>
+          <div className="hidden items-center gap-3 md:flex md:justify-end">
             <Button variant="ghost" onClick={onNavigateToLogin}>Sign In</Button>
             <Button onClick={onNavigateToRegister}>Get Started</Button>
           </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="mt-4 rounded border border-[#2a2a2a] bg-[#0a0a0a] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.55)] md:hidden">
+            <div className="grid gap-1">
+              {navItems.map((item) => (
+                <a key={item.id} href={`#${item.id}`} onClick={closeMobileMenu} className={linkClass(item.id, true)}>
+                  {item.label}
+                </a>
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#2a2a2a] pt-3">
+              <Button variant="secondary" onClick={() => {
+                closeMobileMenu();
+                onNavigateToLogin();
+              }}>Sign In</Button>
+              <Button onClick={() => {
+                closeMobileMenu();
+                onNavigateToRegister();
+              }}>Get Started</Button>
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );
@@ -439,7 +511,7 @@ function LandingFeatures() {
   ];
 
   return (
-    <section id="features" className="px-6 py-20">
+    <section id="features" className="scroll-mt-28 px-6 py-20">
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 text-center">
           <h2 className="mb-4 text-3xl font-semibold text-[#FFE8DB] md:text-4xl">Everything you need to manage certificates</h2>
@@ -471,7 +543,7 @@ function LandingWorkflow() {
   ];
 
   return (
-    <section id="workflow" className="border-y border-[#2a2a2a] bg-[#0a0a0a] px-6 py-20">
+    <section id="workflow" className="scroll-mt-28 border-y border-[#2a2a2a] bg-[#0a0a0a] px-6 py-20">
       <div className="mx-auto max-w-7xl">
         <div className="mb-16 text-center">
           <h2 className="mb-4 text-3xl font-semibold text-[#FFE8DB] md:text-4xl">Simple workflow, powerful results</h2>
@@ -509,7 +581,7 @@ function LandingSecurity() {
   ];
 
   return (
-    <section id="security" className="px-6 py-20">
+    <section id="security" className="scroll-mt-28 px-6 py-20">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
         <div>
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#5682B1]">Security & trust</p>
@@ -546,7 +618,7 @@ function LandingVerification({ onNavigateToVerify }) {
   }
 
   return (
-    <section id="verification" className="border-t border-[#2a2a2a] px-6 py-20">
+    <section id="verification" className="scroll-mt-28 border-t border-[#2a2a2a] px-6 py-20">
       <div className="mx-auto max-w-4xl">
         <div className="mb-12 text-center">
           <h2 className="mb-4 text-3xl font-semibold text-[#FFE8DB] md:text-4xl">Public certificate verification</h2>
