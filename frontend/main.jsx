@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Award,
   BookOpen,
+  Building2,
   Calendar,
   CheckCircle,
   ChevronDown,
@@ -12,18 +13,25 @@ import {
   ChevronRight,
   Download,
   Eye,
+  FileCheck,
+  FileSignature,
   FileText,
+  Github,
   LayoutDashboard,
+  Linkedin,
   LogOut,
   Menu,
   MoreVertical,
   PenTool,
   Plus,
   PlusCircle,
+  RotateCcw,
   Search,
   Settings,
   Share2,
+  ShieldCheck,
   Trash2,
+  TrendingUp,
   Upload,
   Users,
   X,
@@ -46,7 +54,8 @@ function App() {
   });
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(session.token));
   const [currentPage, setCurrentPage] = useState(initialVerificationCode ? "verify" : "dashboard");
-  const [authView, setAuthView] = useState("login");
+  const [authView, setAuthView] = useState("landing");
+  const [publicVerificationCode, setPublicVerificationCode] = useState(initialVerificationCode);
   const [selectedCertificate, setSelectedCertificate] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -73,12 +82,13 @@ function App() {
 
   useEffect(() => {
     if (!toast) return undefined;
-    const timeout = window.setTimeout(() => setToast(null), 3600);
+    const timeout = window.setTimeout(() => setToast(null), 4800);
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
   function notify(message, tone = "success") {
-    setToast({ id: Date.now(), message, tone });
+    const nextToast = typeof message === "object" ? message : { title: message };
+    setToast({ id: Date.now(), tone, ...nextToast });
   }
 
   async function loadWorkspace() {
@@ -132,6 +142,7 @@ function App() {
         email: auth.email,
         orgId: auth.orgId,
       });
+      setCurrentPage("dashboard");
     } catch (error) {
       setAuthError(readError(error));
     } finally {
@@ -158,17 +169,43 @@ function App() {
   }
 
   if (!isAuthenticated && currentPage === "verify") {
-    return <Verify initialCode={initialVerificationCode} onBack={() => setCurrentPage("dashboard")} />;
+    return (
+      <Verify
+        initialCode={publicVerificationCode}
+        onBack={() => {
+          setCurrentPage("dashboard");
+          setAuthView("landing");
+        }}
+        backLabel="Back to home"
+      />
+    );
   }
 
   if (!isAuthenticated) {
+    if (authView === "landing") {
+      return (
+        <PublicLanding
+          onNavigateToLogin={() => setAuthView("login")}
+          onNavigateToRegister={() => setAuthView("register")}
+          onNavigateToVerify={(code = "") => {
+            setPublicVerificationCode(code);
+            setCurrentPage("verify");
+          }}
+        />
+      );
+    }
+
     return authView === "login" ? (
       <Login
         error={authError}
         loading={loading}
         onSubmit={handleAuth}
         onNavigateToRegister={() => setAuthView("register")}
-        onNavigateToVerify={() => setCurrentPage("verify")}
+        onNavigateToLanding={() => setAuthView("landing")}
+        onNavigateToVerify={() => {
+          setPublicVerificationCode("");
+          setCurrentPage("verify");
+        }}
       />
     ) : (
       <Register
@@ -176,12 +213,13 @@ function App() {
         loading={loading}
         onSubmit={handleAuth}
         onNavigateToLogin={() => setAuthView("login")}
+        onNavigateToLanding={() => setAuthView("landing")}
       />
     );
   }
 
   if (currentPage === "verify") {
-    return <Verify initialCode={initialVerificationCode} onBack={() => setCurrentPage("dashboard")} />;
+    return <Verify initialCode={publicVerificationCode} onBack={() => setCurrentPage("dashboard")} backLabel="Back to dashboard" />;
   }
 
   return (
@@ -246,7 +284,273 @@ function App() {
   );
 }
 
-function Login({ error, loading, onSubmit, onNavigateToRegister, onNavigateToVerify }) {
+function PublicLanding({ onNavigateToLogin, onNavigateToRegister, onNavigateToVerify }) {
+  return (
+    <div className="min-h-screen bg-[#000000] text-[#FFE8DB]">
+      <LandingNavigation onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister} onNavigateToVerify={() => onNavigateToVerify("")} />
+      <LandingHero onNavigateToRegister={onNavigateToRegister} onNavigateToVerify={() => onNavigateToVerify("")} />
+      <LandingFeatures />
+      <LandingWorkflow />
+      <LandingVerification onNavigateToVerify={onNavigateToVerify} />
+      <LandingFooter />
+    </div>
+  );
+}
+
+function LandingNavigation({ onNavigateToLogin, onNavigateToRegister, onNavigateToVerify }) {
+  return (
+    <nav className="border-b border-[#2a2a2a] bg-[#000000]">
+      <div className="mx-auto max-w-7xl px-6 py-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
+            <div>
+              <div className="text-lg font-semibold text-[#FFE8DB]">{appName}</div>
+              <div className="text-xs text-[#9a9a9a]">{appTagline}</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <a href="#features" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Features</a>
+              <a href="#workflow" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Workflow</a>
+              <a href="#verification" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Verification</a>
+              <a href="#security" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Security</a>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="secondary" onClick={onNavigateToVerify}>Verify Certificate</Button>
+            <Button variant="ghost" onClick={onNavigateToLogin}>Sign In</Button>
+            <Button onClick={onNavigateToRegister}>Get Started</Button>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+function LandingHero({ onNavigateToRegister, onNavigateToVerify }) {
+  return (
+    <section className="px-6 pb-16 pt-16 md:pt-20">
+      <div className="mx-auto max-w-7xl">
+        <div className="mx-auto mb-14 max-w-3xl text-center">
+          <h1 className="mb-6 text-4xl font-semibold leading-tight text-[#FFE8DB] md:text-6xl">
+            Issue trusted certificates without manual paperwork
+          </h1>
+          <p className="mb-8 text-lg leading-relaxed text-[#9a9a9a]">
+            CertifyX helps organizations manage recipients, courses, signatories, certificate generation, PDF delivery, and public verification from one secure workspace.
+          </p>
+          <div className="flex flex-col items-stretch justify-center gap-4 sm:flex-row sm:items-center">
+            <Button size="lg" onClick={onNavigateToRegister}>Get Started</Button>
+            <Button size="lg" variant="secondary" onClick={onNavigateToVerify}>Verify a Certificate</Button>
+          </div>
+        </div>
+        <LandingDashboardPreview />
+      </div>
+    </section>
+  );
+}
+
+function LandingDashboardPreview() {
+  const metrics = [
+    { label: "Total Certificates", value: "1,247", icon: <Award className="h-4 w-4" /> },
+    { label: "Active Recipients", value: "856", icon: <Users className="h-4 w-4" /> },
+    { label: "Revoked", value: "12", icon: <XCircle className="h-4 w-4" /> },
+    { label: "Issued This Week", value: "43", icon: <TrendingUp className="h-4 w-4" /> },
+  ];
+  const certificates = [
+    { id: "CERT-2026-4832", recipient: "Sarah Chen", course: "Advanced React Development", status: "Issued", date: "2026-04-28" },
+    { id: "CERT-2026-4831", recipient: "Michael Torres", course: "UI/UX Design Fundamentals", status: "Issued", date: "2026-04-27" },
+    { id: "CERT-2026-4830", recipient: "Emma Wilson", course: "Cloud Architecture", status: "Issued", date: "2026-04-26" },
+    { id: "CERT-2026-4829", recipient: "James Rodriguez", course: "Data Science Bootcamp", status: "Revoked", date: "2026-04-25" },
+  ];
+
+  return (
+    <div className="mx-auto max-w-5xl rounded border border-[#2a2a2a] bg-[#0a0a0a] p-4 md:p-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="rounded border border-[#2a2a2a] bg-[#1a1a1a] p-4">
+            <div className="mb-2 flex items-center gap-2 text-[#5682B1]">
+              {metric.icon}
+              <span className="text-xs text-[#9a9a9a]">{metric.label}</span>
+            </div>
+            <div className="text-2xl font-semibold text-[#FFE8DB]">{metric.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="rounded border border-[#2a2a2a] bg-[#1a1a1a] p-4 lg:col-span-2">
+          <h3 className="mb-4 text-sm font-semibold text-[#FFE8DB]">Recent Certificate Activity</h3>
+          <div className="space-y-3">
+            {certificates.map((cert) => (
+              <div key={cert.id} className="grid gap-2 border-b border-[#2a2a2a] pb-3 text-xs last:border-b-0 md:grid-cols-[1.1fr_1.4fr_auto] md:items-center">
+                <div>
+                  <div className="font-medium text-[#FFE8DB]">{cert.id}</div>
+                  <div className="text-[#9a9a9a]">{cert.recipient}</div>
+                </div>
+                <div className="text-[#9a9a9a]">{cert.course}</div>
+                <div className="flex items-center gap-3">
+                  <StatusBadge status={normalizeStatus(cert.status)} />
+                  <span className="w-20 text-[#9a9a9a]">{cert.date}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded border border-[#2a2a2a] bg-[#1a1a1a] p-4">
+          <h3 className="mb-4 text-sm font-semibold text-[#FFE8DB]">Certificate Preview</h3>
+          <div className="aspect-[3/4] rounded border border-[#2a2a2a] bg-[#0a0a0a] p-4">
+            <div className="flex h-full flex-col justify-between">
+              <div className="text-center">
+                <div className="mb-2 text-xs text-[#9a9a9a]">CERTIFICATE OF COMPLETION</div>
+                <div className="mb-1 text-sm font-semibold text-[#FFE8DB]">Sarah Chen</div>
+                <div className="text-xs text-[#9a9a9a]">Advanced React Development</div>
+              </div>
+              <div className="mt-auto border-t border-[#2a2a2a] pt-3">
+                <div className="flex justify-between gap-2 text-xs text-[#9a9a9a]">
+                  <div>ID: CERT-2026-4832</div>
+                  <div>Apr 28, 2026</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LandingFeatures() {
+  const features = [
+    { icon: Building2, title: "Organization workspace", description: "Centralized dashboard for managing all certificate operations and organizational data." },
+    { icon: Users, title: "Recipient and course management", description: "Track recipients, courses, and enrollment data in one unified system." },
+    { icon: FileSignature, title: "Signature and logo setup", description: "Configure authorized signatories and upload organizational branding assets." },
+    { icon: Award, title: "One-click certificate generation", description: "Generate and deliver certificates instantly with automated PDF creation." },
+    { icon: ShieldCheck, title: "Public certificate verification", description: "Allow anyone to verify certificate authenticity via unique verification codes." },
+    { icon: RotateCcw, title: "Revocation tracking", description: "Revoke certificates when needed and maintain complete audit trails." },
+  ];
+
+  return (
+    <section id="features" className="px-6 py-20">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-12 text-center">
+          <h2 className="mb-4 text-3xl font-semibold text-[#FFE8DB] md:text-4xl">Everything you need to manage certificates</h2>
+          <p className="text-lg text-[#9a9a9a]">A complete certificate authority platform built for organizations</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {features.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <div key={feature.title} className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6 transition-colors hover:bg-[#1a1a1a]">
+                <Icon className="mb-4 h-5 w-5 text-[#5682B1]" />
+                <h3 className="mb-2 text-base font-semibold text-[#FFE8DB]">{feature.title}</h3>
+                <p className="text-sm leading-relaxed text-[#9a9a9a]">{feature.description}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LandingWorkflow() {
+  const steps = [
+    { number: "01", icon: Building2, title: "Register Organization", description: "Create your organization account and configure your certificate authority settings." },
+    { number: "02", icon: BookOpen, title: "Add Courses and Recipients", description: "Set up your courses, upload recipient data, and manage enrollments." },
+    { number: "03", icon: FileCheck, title: "Generate Certificates", description: "Create and deliver certificates with one click to all enrolled recipients." },
+    { number: "04", icon: ShieldCheck, title: "Verify Publicly", description: "Recipients and employers can verify certificate authenticity instantly." },
+  ];
+
+  return (
+    <section id="workflow" className="border-y border-[#2a2a2a] bg-[#0a0a0a] px-6 py-20">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-16 text-center">
+          <h2 className="mb-4 text-3xl font-semibold text-[#FFE8DB] md:text-4xl">Simple workflow, powerful results</h2>
+          <p className="text-lg text-[#9a9a9a]">From setup to verification in four straightforward steps</p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-4">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <div key={step.number} className="relative">
+                <div className="h-full rounded border border-[#2a2a2a] bg-[#1a1a1a] p-6">
+                  <div className="mb-4 flex items-center gap-3">
+                    <span className="text-2xl font-semibold text-[#5682B1]">{step.number}</span>
+                    <Icon className="h-5 w-5 text-[#5682B1]" />
+                  </div>
+                  <h3 className="mb-2 text-base font-semibold text-[#FFE8DB]">{step.title}</h3>
+                  <p className="text-sm leading-relaxed text-[#9a9a9a]">{step.description}</p>
+                </div>
+                {index < steps.length - 1 && <div className="absolute -right-3 top-1/2 hidden h-px w-6 bg-[#2a2a2a] md:block" />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LandingVerification({ onNavigateToVerify }) {
+  const [code, setCode] = useState("");
+
+  function submit(event) {
+    event.preventDefault();
+    onNavigateToVerify(code.trim());
+  }
+
+  return (
+    <section id="verification" className="px-6 py-20">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-12 text-center">
+          <h2 className="mb-4 text-3xl font-semibold text-[#FFE8DB] md:text-4xl">Public certificate verification</h2>
+          <p className="text-lg text-[#9a9a9a]">Anyone can verify the authenticity of certificates issued through CertifyX</p>
+        </div>
+        <form onSubmit={submit} className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6 md:p-8">
+          <label className="mb-3 block text-sm text-[#FFE8DB]" htmlFor="landing-verification-code">Enter Certificate Code</label>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Input
+              id="landing-verification-code"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              placeholder="CERT-2026-XXXX"
+              className="flex-1"
+            />
+            <Button type="submit" size="lg"><Search className="h-4 w-4" />Verify</Button>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function LandingFooter() {
+  return (
+    <footer id="security" className="border-t border-[#2a2a2a] bg-[#000000] px-6 py-12">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
+          <div>
+            <div className="mb-1 text-lg font-semibold text-[#FFE8DB]">{appName}</div>
+            <div className="text-sm text-[#9a9a9a]">{appTagline}</div>
+          </div>
+          <div className="flex flex-wrap gap-6">
+            <a href="#features" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Privacy</a>
+            <a href="#security" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Security</a>
+            <a href="mailto:support@certifyx.local" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Contact</a>
+          </div>
+          <div className="flex items-center gap-4">
+            <a href="https://www.linkedin.com" aria-label="LinkedIn" className="text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]"><Linkedin className="h-5 w-5" /></a>
+            <a href="https://github.com" aria-label="GitHub" className="text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]"><Github className="h-5 w-5" /></a>
+          </div>
+        </div>
+        <div className="mt-8 border-t border-[#2a2a2a] pt-8">
+          <p className="text-center text-xs text-[#9a9a9a]">© 2026 CertifyX. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function Login({ error, loading, onSubmit, onNavigateToRegister, onNavigateToLanding, onNavigateToVerify }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#000000] p-4">
       <div className="w-full max-w-md">
@@ -258,14 +562,14 @@ function Login({ error, loading, onSubmit, onNavigateToRegister, onNavigateToVer
         <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6">
           <h2 className="mb-6 text-xl font-medium text-[#FFE8DB]">Sign In</h2>
           <form onSubmit={onSubmit}>
-            <FormField label="Email" required>
+            <FormField label="Email" helper="Use the admin email connected to your organization workspace." required>
               <Input name="email" type="email" placeholder="admin@example.com" required />
             </FormField>
-            <FormField label="Password" required>
+            <FormField label="Password" helper="Keep it private. We will never ask for it outside this sign-in screen." required>
               <Input name="password" type="password" placeholder="Password" required />
             </FormField>
-            {error && <p className="mb-4 text-xs text-[#dc2626]">{error}</p>}
-            <Button type="submit" variant="primary" fullWidth disabled={loading}>
+            <FormError message={error} className="mb-4" />
+            <Button type="submit" variant="primary" fullWidth loading={loading}>
               {loading ? "Signing In..." : "Sign In"}
             </Button>
           </form>
@@ -279,6 +583,9 @@ function Login({ error, loading, onSubmit, onNavigateToRegister, onNavigateToVer
             <button onClick={onNavigateToVerify} className="mt-4 text-xs text-[#5682B1] hover:text-[#739EC9]">
               Verify a certificate
             </button>
+            <button onClick={onNavigateToLanding} className="mt-4 block w-full text-xs text-[#9a9a9a] hover:text-[#FFE8DB]">
+              Back to public site
+            </button>
           </div>
         </div>
       </div>
@@ -286,7 +593,7 @@ function Login({ error, loading, onSubmit, onNavigateToRegister, onNavigateToVer
   );
 }
 
-function Register({ error, loading, onSubmit, onNavigateToLogin }) {
+function Register({ error, loading, onSubmit, onNavigateToLogin, onNavigateToLanding }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#000000] p-4">
       <div className="w-full max-w-2xl">
@@ -299,22 +606,22 @@ function Register({ error, loading, onSubmit, onNavigateToLogin }) {
           <h2 className="mb-6 text-xl font-medium text-[#FFE8DB]">Register Organization</h2>
           <form onSubmit={onSubmit}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="Organization Name" required>
+              <FormField label="Organization Name" helper="This name appears on generated certificates and verification pages." required>
                 <Input name="name" placeholder="Acme Corporation" required />
               </FormField>
-              <FormField label="Email" required>
+              <FormField label="Email" helper="Use a shared admin inbox if multiple people will manage certificates." required>
                 <Input name="email" type="email" placeholder="admin@acme.com" required />
               </FormField>
-              <FormField label="Website">
+              <FormField label="Website" helper="Shown as part of your public organization profile when available.">
                 <Input name="website" type="url" placeholder="https://acme.com" />
               </FormField>
-              <FormField label="Password" required>
+              <FormField label="Password" helper="Choose a password your organization can store securely." required>
                 <Input name="password" type="password" placeholder="Password" required />
               </FormField>
             </div>
-            {error && <p className="mt-4 text-xs text-[#dc2626]">{error}</p>}
+            <FormError message={error} className="mt-4" />
             <div className="mt-6 flex gap-3">
-              <Button type="submit" variant="primary" fullWidth disabled={loading}>
+              <Button type="submit" variant="primary" fullWidth loading={loading}>
                 {loading ? "Registering..." : "Register Organization"}
               </Button>
             </div>
@@ -326,6 +633,9 @@ function Register({ error, loading, onSubmit, onNavigateToLogin }) {
                 Sign in
               </button>
             </p>
+            <button onClick={onNavigateToLanding} className="mt-4 text-xs text-[#9a9a9a] hover:text-[#FFE8DB]">
+              Back to public site
+            </button>
           </div>
         </div>
       </div>
@@ -653,10 +963,7 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction, 
     const certificate = certificateByRecipientId.get(String(recipient.id));
     const certificateStatus = certificate ? normalizeStatus(certificate.status) : "not issued";
     const matchesCourse = courseFilter === "all" || String(recipient.courseId) === String(courseFilter);
-    const matchesCertificate =
-      certificateFilter === "all" ||
-      certificateStatus === certificateFilter ||
-      (certificateFilter === "issued" && certificateStatus === "active");
+    const matchesCertificate = certificateFilter === "all" || certificateStatus === certificateFilter;
 
     return matchesCourse && matchesCertificate;
   });
@@ -710,16 +1017,16 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction, 
         <Panel title="New Recipient">
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Full Name" required><Input name="fullName" placeholder="John Doe" required /></FormField>
-              <FormField label="Email" required><Input name="email" type="email" placeholder="john@example.com" required /></FormField>
-              <FormField label="Course" required>
+              <FormField label="Full Name" helper="Use the recipient name exactly as it should appear on the certificate." required><Input name="fullName" placeholder="John Doe" required /></FormField>
+              <FormField label="Email" helper="Certificate delivery and verification details will use this address." required><Input name="email" type="email" placeholder="john@example.com" required /></FormField>
+              <FormField label="Course" helper="Only recipients attached to a course can receive certificates." required>
                 <Select name="courseId" required options={[{ value: "", label: "Select a course" }, ...data.courses.map((course) => ({ value: course.id, label: course.name }))]} />
               </FormField>
-              <FormField label="Score" required><Input name="score" type="number" placeholder="95" required /></FormField>
-              <FormField label="Grade" required><Input name="grade" placeholder="A" required /></FormField>
-              <FormField label="Completion Date" required><DateInput name="completionDate" required /></FormField>
+              <FormField label="Score" helper="Must meet the course eligibility score before generation." required><Input name="score" type="number" placeholder="95" required /></FormField>
+              <FormField label="Grade" helper="Short grade label, for example A, Pass, or Distinction." required><Input name="grade" placeholder="A" required /></FormField>
+              <FormField label="Completion Date" helper="This date appears on generated certificates." required><DateInput name="completionDate" required /></FormField>
             </div>
-            {message && <p className="mt-4 text-xs text-[#dc2626]">{message}</p>}
+            <FormError message={message} className="mt-4" />
             <FormActions onCancel={() => setShowForm(false)} submitLabel="Add Recipient" />
           </form>
         </Panel>
@@ -754,8 +1061,8 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction, 
                 <Detail label="Recipient" value={generatingFor.fullName} />
                 <Detail label="Course" value={generatingFor.courseName || courseName(data.courses, generatingFor.courseId)} />
               </div>
-              <FormField label="Certificate Title" required><Input name="certificateTitle" defaultValue="Certificate of Completion" required /></FormField>
-              <FormField label="Signatory" required>
+              <FormField label="Certificate Title" helper="This becomes the headline of the issued certificate." required><Input name="certificateTitle" defaultValue="Certificate of Completion" required /></FormField>
+              <FormField label="Signatory" helper="Choose the authorized person whose signature should appear." required>
                 <Select name="signatoryId" required options={[{ value: "", label: "Select a signatory" }, ...data.signatories.map((signatory) => ({ value: signatory.id, label: `${signatory.name} - ${signatory.title}` }))]} />
               </FormField>
               <FormActions onCancel={() => setGeneratingFor(null)} submitLabel={busyRecipientId === generatingFor.id ? "Generating..." : "Generate Certificate"} disabled={busyRecipientId === generatingFor.id} />
@@ -951,10 +1258,10 @@ function Courses({ data, session, refresh, confirmAction, notify }) {
       {showForm && (
         <Panel title="New Course">
           <form onSubmit={handleSubmit}>
-            <FormField label="Course Name" required><Input name="name" placeholder="Web Development Fundamentals" required /></FormField>
-            <FormField label="Description" required><Textarea name="description" rows={3} placeholder="Comprehensive introduction to web development..." required /></FormField>
-            <FormField label="Eligibility Score" required><Input name="minScore" type="number" placeholder="70" required /></FormField>
-            {message && <p className="mt-4 text-xs text-[#dc2626]">{message}</p>}
+            <FormField label="Course Name" helper="Use a clear title recipients will recognize on certificates." required><Input name="name" placeholder="Web Development Fundamentals" required /></FormField>
+            <FormField label="Description" helper="Summarize what the recipient completed. Keep it concise for scanning." required><Textarea name="description" rows={3} placeholder="Comprehensive introduction to web development..." required /></FormField>
+            <FormField label="Eligibility Score" helper="Recipients must meet or exceed this score before a certificate can be generated." required><Input name="minScore" type="number" placeholder="70" required /></FormField>
+            <FormError message={message} className="mt-4" />
             <FormActions onCancel={() => setShowForm(false)} submitLabel="Add Course" />
           </form>
         </Panel>
@@ -962,9 +1269,9 @@ function Courses({ data, session, refresh, confirmAction, notify }) {
       {editingCourse && (
         <Panel title={`Edit ${editingCourse.name}`}>
           <form key={editingCourse.id} onSubmit={handleEdit}>
-            <FormField label="Course Name" required><Input name="name" defaultValue={editingCourse.name} required /></FormField>
-            <FormField label="Description"><Textarea name="description" rows={3} defaultValue={editingCourse.description || ""} /></FormField>
-            <FormField label="Eligibility Score" required><Input name="minScore" type="number" defaultValue={editingCourse.minScore ?? 0} required /></FormField>
+            <FormField label="Course Name" helper="Use a clear title recipients will recognize on certificates." required><Input name="name" defaultValue={editingCourse.name} required /></FormField>
+            <FormField label="Description" helper="Optional edits will not change already issued certificate records."><Textarea name="description" rows={3} defaultValue={editingCourse.description || ""} /></FormField>
+            <FormField label="Eligibility Score" helper="Changing this affects future eligibility checks." required><Input name="minScore" type="number" defaultValue={editingCourse.minScore ?? 0} required /></FormField>
             <FormActions onCancel={() => setEditingCourse(null)} submitLabel={busyCourseId === editingCourse.id ? "Saving..." : "Save Changes"} disabled={busyCourseId === editingCourse.id} />
           </form>
         </Panel>
@@ -1171,8 +1478,8 @@ function Signatories({ data, session, refresh, confirmAction, notify }) {
         <Panel title="New Signatory">
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Full Name" required><Input name="name" placeholder="Dr. Sarah Johnson" required /></FormField>
-              <FormField label="Title" required><Input name="title" placeholder="Dean of Education" required /></FormField>
+              <FormField label="Full Name" helper="Enter the name exactly as it should appear near the signature." required><Input name="name" placeholder="Dr. Sarah Johnson" required /></FormField>
+              <FormField label="Title" helper="For example Dean of Education, Program Director, or Head of Training." required><Input name="title" placeholder="Dean of Education" required /></FormField>
             </div>
             <div className="mt-4">
               <FileUpload label="Signature Image" accept="image/png,image/jpeg,image/webp" onFileSelect={(file) => {
@@ -1181,7 +1488,7 @@ function Signatories({ data, session, refresh, confirmAction, notify }) {
               }} />
               {signatureName && <p className="mt-2 text-xs text-[#9a9a9a]">{signatureName}</p>}
             </div>
-            {message && <p className="mt-4 text-xs text-[#dc2626]">{message}</p>}
+            <FormError message={message} className="mt-4" />
             <FormActions onCancel={() => {
               setShowForm(false);
               setSignatureFile(null);
@@ -1194,8 +1501,8 @@ function Signatories({ data, session, refresh, confirmAction, notify }) {
         <Panel title={`Edit ${editingSignatory.name}`}>
           <form key={editingSignatory.id} onSubmit={handleEdit}>
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Full Name" required><Input name="name" defaultValue={editingSignatory.name} required /></FormField>
-              <FormField label="Title" required><Input name="title" defaultValue={editingSignatory.title} required /></FormField>
+              <FormField label="Full Name" helper="Enter the name exactly as it should appear near the signature." required><Input name="name" defaultValue={editingSignatory.name} required /></FormField>
+              <FormField label="Title" helper="For example Dean of Education, Program Director, or Head of Training." required><Input name="title" defaultValue={editingSignatory.title} required /></FormField>
             </div>
             <div className="mt-4">
               <FileUpload label="Signature Image" accept="image/png,image/jpeg,image/webp" onFileSelect={(file) => setEditSignatureFile(file || null)} />
@@ -1361,11 +1668,11 @@ function Certificates({ data, session, refresh, onViewCertificate, onNavigate, c
       {editingCertificate && (
         <Panel title={`Edit ${displayCertificateId(editingCertificate)}`}>
           <form key={editingCertificate.id} onSubmit={handleEdit}>
-            <FormField label="Recipient" required>
+            <FormField label="Recipient" helper="Only eligible recipients without an active certificate can be selected." required>
               <Select name="recipientId" required defaultValue={editingCertificate.recipientId} options={[{ value: "", label: "Select a recipient" }, ...data.recipients.map((recipient) => ({ value: recipient.id, label: `${recipient.fullName} - ${recipient.email}` }))]} />
             </FormField>
-            <FormField label="Certificate Title" required><Input name="certificateTitle" defaultValue={editingCertificate.certificateTitle} required /></FormField>
-            <FormField label="Signatory" required>
+            <FormField label="Certificate Title" helper="This becomes the headline of the issued certificate." required><Input name="certificateTitle" defaultValue={editingCertificate.certificateTitle} required /></FormField>
+            <FormField label="Signatory" helper="Choose the authorized person whose signature should appear." required>
               <Select name="signatoryId" required defaultValue={editingCertificate.signatoryId} options={[{ value: "", label: "Select a signatory" }, ...data.signatories.map((signatory) => ({ value: signatory.id, label: `${signatory.name} - ${signatory.title}` }))]} />
             </FormField>
             <FormActions onCancel={() => setEditingCertificate(null)} submitLabel={busyCertificateId === editingCertificate.id ? "Saving..." : "Save Changes"} disabled={busyCertificateId === editingCertificate.id} />
@@ -1504,8 +1811,8 @@ function Generate({ data, session, refresh, onViewCertificate, notify }) {
                 options={[{ value: "", label: hasAvailableRecipients ? "Select a recipient" : "No recipients available" }, ...availableRecipients.map((recipient) => ({ value: recipient.id, label: `${recipient.fullName} - ${recipient.courseName || recipient.email}` }))]}
               />
             </FormField>
-            <FormField label="Certificate Title" required><Input name="certificateTitle" placeholder="Certificate of Completion" required /></FormField>
-            <FormField label="Signatory" required>
+            <FormField label="Certificate Title" helper="This becomes the headline of the issued certificate." required><Input name="certificateTitle" placeholder="Certificate of Completion" required /></FormField>
+            <FormField label="Signatory" helper="Choose the authorized person whose signature should appear." required>
               <Select name="signatoryId" required options={[{ value: "", label: "Select a signatory" }, ...data.signatories.map((signatory) => ({ value: signatory.id, label: `${signatory.name} - ${signatory.title}` }))]} />
             </FormField>
             {(message || generatedCertificate) && (
@@ -1798,10 +2105,10 @@ function SettingsPanel({ data, session, refresh, notify, onNavigate }) {
         <form onSubmit={handleSubmit}>
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <Panel title="Organization Profile">
-              <FormField label="Organization Name" required><Input name="name" defaultValue={profile.name} required /></FormField>
+              <FormField label="Organization Name" helper="This name is used across certificates, verification, and public views." required><Input name="name" defaultValue={profile.name} required /></FormField>
               <Detail label="Contact Email" value={profile.email || "--"} />
               <div className="mt-4" />
-              <FormField label="Website"><Input name="website" type="url" defaultValue={profile.website} /></FormField>
+              <FormField label="Website" helper="Add a public URL for recipients and verifiers who need more context."><Input name="website" type="url" defaultValue={profile.website} /></FormField>
               <div className="rounded border border-[#2a2a2a] bg-[#1a1a1a] p-4">
                 <p className="mb-2 text-xs uppercase tracking-wider text-[#9a9a9a]">Certificate use</p>
                 <p className="text-sm leading-6 text-[#FFE8DB]">
@@ -1838,9 +2145,9 @@ function SettingsPanel({ data, session, refresh, notify, onNavigate }) {
             </Panel>
           </div>
 
-          {message && <p className="mb-4 text-xs text-[#dc2626]">{message}</p>}
+          <FormError message={message} className="mb-4" />
           <div className="mb-6 border-t border-[#2a2a2a] pt-6">
-            <Button type="submit" variant="primary" disabled={saving}>{saving ? "Saving Changes..." : "Save Changes"}</Button>
+            <Button type="submit" variant="primary" loading={saving}>{saving ? "Saving Changes..." : "Save Changes"}</Button>
           </div>
         </form>
 
@@ -1897,7 +2204,7 @@ function SettingsPanel({ data, session, refresh, notify, onNavigate }) {
   );
 }
 
-function Verify({ initialCode = "", onBack }) {
+function Verify({ initialCode = "", onBack, backLabel = "Back" }) {
   const [verificationCode, setVerificationCode] = useState(initialCode);
   const [verifying, setVerifying] = useState(false);
   const [result, setResult] = useState(null);
@@ -1973,7 +2280,7 @@ function Verify({ initialCode = "", onBack }) {
           )}
         </div>
         <div className="text-center">
-          {onBack && <button onClick={onBack} className="mb-4 text-sm text-[#5682B1] hover:text-[#739EC9]">Back to dashboard</button>}
+          {onBack && <button onClick={onBack} className="mb-4 text-sm text-[#5682B1] hover:text-[#739EC9]">{backLabel}</button>}
           <p className="text-xs text-[#9a9a9a]">Powered by <span className="text-[#5682B1]">{appName}</span> {appTagline}</p>
         </div>
       </div>
@@ -2006,15 +2313,29 @@ function MetricCard({ label, value, icon, trend }) {
   );
 }
 
-function FormField({ label, error, required, children }) {
+function FormField({ label, error, helper, required, children }) {
   return (
     <div className="mb-4">
-      <label className="mb-2 block text-sm font-medium text-[#FFE8DB]">
-        {label}
-        {required && <span className="ml-1 text-[#dc2626]">*</span>}
-      </label>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <label className="block text-sm font-medium text-[#FFE8DB]">
+          {label}
+          {required && <span className="ml-1 text-[#dc2626]">*</span>}
+        </label>
+        {!required && <span className="text-[0.65rem] uppercase tracking-wider text-[#6f6f6f]">Optional</span>}
+      </div>
       {children}
-      {error && <p className="mt-1 text-xs text-[#dc2626]">{error}</p>}
+      {helper && !error && <p className="mt-2 text-xs leading-5 text-[#8f8f8f]">{helper}</p>}
+      {error && <p className="mt-2 text-xs leading-5 text-[#dc2626]">{error}</p>}
+    </div>
+  );
+}
+
+function FormError({ message, className = "" }) {
+  if (!message) return null;
+  return (
+    <div className={`flex items-start gap-2 rounded border border-[#dc2626]/35 bg-[#dc2626]/10 p-3 text-sm leading-5 text-[#fecaca] ${className}`}>
+      <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#dc2626]" />
+      <span>{message}</span>
     </div>
   );
 }
@@ -2388,13 +2709,13 @@ function Table({
 
 function StatusBadge({ status }) {
   const styles = {
-    issued: "bg-[#5682B1]/20 text-[#5682B1] border-[#5682B1]/30",
-    active: "bg-[#739EC9]/20 text-[#739EC9] border-[#739EC9]/30",
-    revoked: "bg-[#dc2626]/20 text-[#dc2626] border-[#dc2626]/30",
-    inactive: "bg-[#2a2a2a] text-[#9a9a9a] border-[#2a2a2a]",
-    "not issued": "bg-[#2a2a2a] text-[#9a9a9a] border-[#2a2a2a]",
+    issued: "bg-[#5682B1] text-[#000000]",
+    active: "bg-[#5682B1] text-[#000000]",
+    revoked: "bg-[#dc2626] text-[#FFE8DB]",
+    inactive: "bg-[#2a2a2a] text-[#9a9a9a]",
+    "not issued": "bg-[#2a2a2a] text-[#9a9a9a]",
   };
-  return <span className={`inline-flex rounded border px-2 py-0.5 text-xs ${styles[status] || styles.inactive}`}>{capitalize(status)}</span>;
+  return <span className={`inline-flex rounded px-2 py-1 text-xs ${styles[status] || styles.inactive}`}>{capitalize(status)}</span>;
 }
 
 function Panel({ title, children }) {

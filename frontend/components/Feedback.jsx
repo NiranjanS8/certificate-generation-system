@@ -50,26 +50,41 @@ export function Toast({ toast, onClose }) {
   if (!toast) return null;
   const isError = toast.tone === "error";
   const Icon = isError ? AlertCircle : CheckCircle;
-  const label = isError ? "Action failed" : "Success";
+  const title = toast.title || toast.message || (isError ? "Action failed" : "Changes saved");
+  const description = toast.description || (isError ? "Please review the issue and try again." : "Details have been successfully updated.");
+  const actions = Array.isArray(toast.actions) ? toast.actions : [];
 
   return (
-    <div className="fixed right-4 top-4 z-[250] w-[calc(100vw-2rem)] max-w-sm sm:right-6 sm:top-6" role="status" aria-live="polite">
-      <div className={`toast-pop overflow-hidden rounded border bg-[#0a0a0a]/95 shadow-[0_20px_60px_rgba(0,0,0,0.62)] backdrop-blur ${isError ? "border-[#dc2626]/45" : "border-[#5682B1]/45"}`}>
-        <div className={`h-0.5 ${isError ? "bg-[#dc2626]" : "bg-[#739EC9]"}`} />
-        <div className="flex items-start gap-3 p-4">
-          <div className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border ${isError ? "border-[#dc2626]/35 bg-[#dc2626]/10 text-[#dc2626]" : "border-[#5682B1]/35 bg-[#5682B1]/10 text-[#739EC9]"}`}>
-            <Icon className="h-4 w-4" />
+    <div className="fixed right-4 top-4 z-[250] w-[calc(100vw-2rem)] max-w-md sm:right-6 sm:top-6" role="status" aria-live="polite">
+      <div className="toast-pop rounded-xl border border-[#3a3a3a] bg-[#222222]/95 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.7)] ring-1 ring-white/5 backdrop-blur">
+        <div className="flex items-start gap-3">
+          <div className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full ${isError ? "text-[#ef4444]" : "text-[#22c55e]"}`}>
+            <Icon className="h-5 w-5" />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className={`mb-0.5 text-xs font-medium uppercase tracking-wider ${isError ? "text-[#dc2626]" : "text-[#739EC9]"}`}>{label}</p>
-            <p className="text-sm leading-6 text-[#FFE8DB]">{toast.message}</p>
+          <div className="min-w-0 flex-1 pr-6">
+            <p className="text-base font-medium leading-6 text-[#FFE8DB]">{title}</p>
+            <p className="mt-1 text-sm leading-5 text-[#b9b1ad]">{description}</p>
+            {actions.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-4">
+                {actions.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => {
+                      action.onClick?.();
+                      if (action.closeOnClick !== false) onClose();
+                    }}
+                    className="text-sm font-medium text-[#d8d0cb] transition-colors hover:text-[#FFE8DB]"
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <button type="button" onClick={onClose} className="rounded p-1 text-[#9a9a9a] hover:bg-[#1a1a1a] hover:text-[#FFE8DB]" aria-label="Dismiss notification">
-            <X className="h-4 w-4" />
+          <button type="button" onClick={onClose} className="rounded p-1 text-[#8d8885] transition-colors hover:bg-white/5 hover:text-[#FFE8DB]" aria-label="Dismiss notification">
+            <X className="h-5 w-5" />
           </button>
-        </div>
-        <div className="h-0.5 bg-[#1a1a1a]">
-          <div className={`toast-progress h-full ${isError ? "bg-[#dc2626]" : "bg-[#5682B1]"}`} />
         </div>
       </div>
     </div>

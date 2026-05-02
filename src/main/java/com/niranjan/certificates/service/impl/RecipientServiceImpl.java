@@ -137,6 +137,12 @@ public class RecipientServiceImpl implements RecipientService {
         }
     }
 
+    private void validateActiveCourse(Course course) {
+        if (Boolean.FALSE.equals(course.getIsActive())) {
+            throw new IllegalArgumentException("Cannot assign recipient to inactive course: " + course.getName());
+        }
+    }
+
     private void validateCertificateLockedFields(UUID orgId, Recipient recipient, Course course,
                                                  RecipientRequest request, LocalDate completionDate) {
         if (!certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {

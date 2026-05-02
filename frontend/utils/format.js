@@ -8,7 +8,7 @@ export function normalizeStatus(status = "issued") {
   const value = String(status).toLowerCase();
   if (value === "issued") return "issued";
   if (value === "revoked") return "revoked";
-  if (value === "active") return "active";
+  if (value === "active") return "issued";
   if (value === "inactive") return "inactive";
   return "issued";
 }
