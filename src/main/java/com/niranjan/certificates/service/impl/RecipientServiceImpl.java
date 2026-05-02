@@ -5,6 +5,7 @@ import com.niranjan.certificates.dto.response.RecipientResponse;
 import com.niranjan.certificates.entity.Course;
 import com.niranjan.certificates.entity.Organization;
 import com.niranjan.certificates.entity.Recipient;
+import com.niranjan.certificates.exception.DuplicateResourceException;
 import com.niranjan.certificates.exception.ResourceNotFoundException;
 import com.niranjan.certificates.repository.CertificateRepository;
 import com.niranjan.certificates.repository.CourseRepository;
@@ -38,6 +39,7 @@ public class RecipientServiceImpl implements RecipientService {
 
         Course course = courseRepository.findByIdAndOrganizationId(request.getCourseId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", request.getCourseId()));
+        validateActiveCourse(course);
 
         Recipient recipient = Recipient.builder()
                 .organization(org)
@@ -78,6 +80,13 @@ public class RecipientServiceImpl implements RecipientService {
 
         Course course = courseRepository.findByIdAndOrganizationId(request.getCourseId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", request.getCourseId()));
+        validateActiveCourse(course);
+
+        if (!recipient.getCourse().getId().equals(course.getId())
+                && certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {
+            throw new DuplicateResourceException(
+                    "Cannot change recipient course after a certificate has been issued");
+        }
 
         LocalDate completionDate = parseDate(request.getCompletionDate());
         validateCertificateLockedFields(orgId, recipient, course, request, completionDate);
@@ -97,6 +106,10 @@ public class RecipientServiceImpl implements RecipientService {
     public void delete(UUID orgId, UUID id) {
         Recipient recipient = recipientRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipient", "id", id));
+        if (certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {
+            throw new DuplicateResourceException(
+                    "Cannot delete recipient after a certificate has been issued");
+        }
         recipientRepository.delete(recipient);
     }
 
