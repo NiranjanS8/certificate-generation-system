@@ -150,11 +150,21 @@ function App() {
     }
   }
 
-  function logout() {
+  function performLogout() {
     setSession(emptySession);
     setData({ profile: null, certificates: [], recipients: [], courses: [], signatories: [] });
     setCurrentPage("dashboard");
     localStorage.removeItem(storageKey);
+  }
+
+  async function requestLogout() {
+    const confirmed = await confirmAction({
+      title: "Sign out?",
+      message: "You will return to the public site and need to sign in again to manage certificates.",
+      confirmLabel: "Sign out",
+      tone: "default",
+    });
+    if (confirmed) performLogout();
   }
 
   function confirmAction(options) {
@@ -233,7 +243,7 @@ function App() {
         }}
         profile={data.profile}
         email={session.email}
-        onLogout={logout}
+        onLogout={requestLogout}
         mobileOpen={mobileNavOpen}
       />
       <button
@@ -287,19 +297,20 @@ function App() {
 function PublicLanding({ onNavigateToLogin, onNavigateToRegister, onNavigateToVerify }) {
   return (
     <div className="min-h-screen bg-[#000000] text-[#FFE8DB]">
-      <LandingNavigation onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister} onNavigateToVerify={() => onNavigateToVerify("")} />
+      <LandingNavigation onNavigateToLogin={onNavigateToLogin} onNavigateToRegister={onNavigateToRegister} />
       <LandingHero onNavigateToRegister={onNavigateToRegister} onNavigateToVerify={() => onNavigateToVerify("")} />
       <LandingFeatures />
       <LandingWorkflow />
+      <LandingSecurity />
       <LandingVerification onNavigateToVerify={onNavigateToVerify} />
       <LandingFooter />
     </div>
   );
 }
 
-function LandingNavigation({ onNavigateToLogin, onNavigateToRegister, onNavigateToVerify }) {
+function LandingNavigation({ onNavigateToLogin, onNavigateToRegister }) {
   return (
-    <nav className="border-b border-[#2a2a2a] bg-[#000000]">
+    <nav className="fixed left-0 right-0 top-0 z-50 border-b border-[#2a2a2a] bg-[#000000]/95 backdrop-blur">
       <div className="mx-auto max-w-7xl px-6 py-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
@@ -315,7 +326,6 @@ function LandingNavigation({ onNavigateToLogin, onNavigateToRegister, onNavigate
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="secondary" onClick={onNavigateToVerify}>Verify Certificate</Button>
             <Button variant="ghost" onClick={onNavigateToLogin}>Sign In</Button>
             <Button onClick={onNavigateToRegister}>Get Started</Button>
           </div>
@@ -327,7 +337,7 @@ function LandingNavigation({ onNavigateToLogin, onNavigateToRegister, onNavigate
 
 function LandingHero({ onNavigateToRegister, onNavigateToVerify }) {
   return (
-    <section className="px-6 pb-16 pt-16 md:pt-20">
+    <section className="px-6 pb-16 pt-36 md:pt-40">
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto mb-14 max-w-3xl text-center">
           <h1 className="mb-6 text-4xl font-semibold leading-tight text-[#FFE8DB] md:text-6xl">
@@ -490,6 +500,43 @@ function LandingWorkflow() {
   );
 }
 
+function LandingSecurity() {
+  const securityItems = [
+    { icon: ShieldCheck, title: "Unique verification codes", description: "Every issued certificate carries a public code that confirms recipient, course, date, and current status." },
+    { icon: RotateCcw, title: "Revocation visibility", description: "Revoked certificates remain traceable while clearly showing that the credential is no longer valid." },
+    { icon: Building2, title: "Organization-scoped records", description: "Certificate, recipient, course, and signatory data stay bound to the issuing organization workspace." },
+    { icon: FileSignature, title: "Authorized signatories", description: "Only configured signatories and approved organization branding are used for certificate generation." },
+  ];
+
+  return (
+    <section id="security" className="px-6 py-20">
+      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#5682B1]">Security & trust</p>
+          <h2 className="mb-4 text-3xl font-semibold text-[#FFE8DB] md:text-4xl">Certificates should be simple to verify and hard to misuse.</h2>
+          <p className="text-base leading-7 text-[#9a9a9a]">
+            CertifyX keeps the verification story clear: issue credentials from one organization workspace, track their lifecycle, and let anyone confirm a certificate without private dashboard access.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {securityItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.title} className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-5">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded bg-[#5682B1] text-[#000000]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="mb-2 text-base font-semibold text-[#FFE8DB]">{item.title}</h3>
+                <p className="text-sm leading-6 text-[#9a9a9a]">{item.description}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function LandingVerification({ onNavigateToVerify }) {
   const [code, setCode] = useState("");
 
@@ -499,7 +546,7 @@ function LandingVerification({ onNavigateToVerify }) {
   }
 
   return (
-    <section id="verification" className="px-6 py-20">
+    <section id="verification" className="border-t border-[#2a2a2a] px-6 py-20">
       <div className="mx-auto max-w-4xl">
         <div className="mb-12 text-center">
           <h2 className="mb-4 text-3xl font-semibold text-[#FFE8DB] md:text-4xl">Public certificate verification</h2>
@@ -525,25 +572,20 @@ function LandingVerification({ onNavigateToVerify }) {
 
 function LandingFooter() {
   return (
-    <footer id="security" className="border-t border-[#2a2a2a] bg-[#000000] px-6 py-12">
+    <footer className="border-t border-[#2a2a2a] bg-[#000000] px-6 py-6">
       <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
-          <div>
-            <div className="mb-1 text-lg font-semibold text-[#FFE8DB]">{appName}</div>
-            <div className="text-sm text-[#9a9a9a]">{appTagline}</div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-[#FFE8DB]">{appName}</div>
+            <div className="text-xs text-[#9a9a9a]">&copy; 2026 CertifyX. All rights reserved.</div>
           </div>
-          <div className="flex flex-wrap gap-6">
-            <a href="#features" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Privacy</a>
-            <a href="#security" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Security</a>
-            <a href="mailto:support@certifyx.local" className="text-sm text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Contact</a>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <a href="#features" className="text-xs text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Privacy</a>
+            <a href="#security" className="text-xs text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Security</a>
+            <a href="mailto:support@certifyx.local" className="text-xs text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]">Contact</a>
+            <a href="https://www.linkedin.com/in/niranjans8" aria-label="LinkedIn" className="text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]"><Linkedin className="h-4 w-4" /></a>
+            <a href="https://github.com/NiranjanS8" aria-label="GitHub" className="text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]"><Github className="h-4 w-4" /></a>
           </div>
-          <div className="flex items-center gap-4">
-            <a href="https://www.linkedin.com" aria-label="LinkedIn" className="text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]"><Linkedin className="h-5 w-5" /></a>
-            <a href="https://github.com" aria-label="GitHub" className="text-[#9a9a9a] transition-colors hover:text-[#FFE8DB]"><Github className="h-5 w-5" /></a>
-          </div>
-        </div>
-        <div className="mt-8 border-t border-[#2a2a2a] pt-8">
-          <p className="text-center text-xs text-[#9a9a9a]">© 2026 CertifyX. All rights reserved.</p>
         </div>
       </div>
     </footer>
@@ -584,7 +626,7 @@ function Login({ error, loading, onSubmit, onNavigateToRegister, onNavigateToLan
               Verify a certificate
             </button>
             <button onClick={onNavigateToLanding} className="mt-4 block w-full text-xs text-[#9a9a9a] hover:text-[#FFE8DB]">
-              Back to public site
+              Back to home
             </button>
           </div>
         </div>
@@ -634,7 +676,7 @@ function Register({ error, loading, onSubmit, onNavigateToLogin, onNavigateToLan
               </button>
             </p>
             <button onClick={onNavigateToLanding} className="mt-4 text-xs text-[#9a9a9a] hover:text-[#FFE8DB]">
-              Back to public site
+              Back to home
             </button>
           </div>
         </div>
@@ -877,7 +919,7 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction, 
     const confirmed = await confirmAction({
       title: "Delete recipient?",
       message: `${recipient.fullName} will be permanently removed. Existing generated certificates are not revoked, but this recipient record will no longer be available for editing.`,
-      confirmLabel: "Delete recipient",
+      confirmLabel: "Delete",
       tone: "danger",
     });
     if (!confirmed) return;
@@ -1198,7 +1240,7 @@ function Courses({ data, session, refresh, confirmAction, notify }) {
     const confirmed = await confirmAction({
       title: "Deactivate course?",
       message: `${course.name} will be removed from active course lists. Existing recipients and certificates will keep their current course history.`,
-      confirmLabel: "Deactivate course",
+      confirmLabel: "Deactivate",
       tone: "danger",
     });
     if (!confirmed) return;
@@ -1423,7 +1465,7 @@ function Signatories({ data, session, refresh, confirmAction, notify }) {
     const confirmed = await confirmAction({
       title: "Delete signatory?",
       message: `${signatory.name} will be permanently removed and can no longer be selected for new certificates. Existing generated PDFs are not changed.`,
-      confirmLabel: "Delete signatory",
+      confirmLabel: "Delete",
       tone: "danger",
     });
     if (!confirmed) return;
@@ -1634,7 +1676,7 @@ function Certificates({ data, session, refresh, onViewCertificate, onNavigate, c
     const confirmed = await confirmAction({
       title: "Revoke certificate?",
       message: `${displayCertificateId(cert)} will stop verifying publicly and remain in the registry with revoked status.`,
-      confirmLabel: "Revoke certificate",
+      confirmLabel: "Revoke",
       tone: "danger",
     });
     if (!confirmed) return;

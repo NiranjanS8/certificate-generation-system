@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { AlertCircle, CheckCircle, X } from "lucide-react";
+import { AlertCircle, CheckCircle, ShieldAlert, X } from "lucide-react";
 import { Button } from "./Button.jsx";
 
 export function ConfirmationDialog({ open, title, message, confirmLabel = "Confirm", tone = "danger", onCancel, onConfirm }) {
@@ -18,28 +18,42 @@ export function ConfirmationDialog({ open, title, message, confirmLabel = "Confi
   if (!open) return null;
 
   const isDanger = tone === "danger";
+  const Icon = isDanger ? ShieldAlert : CheckCircle;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" role="presentation" onMouseDown={onCancel}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" role="presentation" onMouseDown={onCancel}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirmation-title"
-        className="w-full max-w-md rounded border border-[#2a2a2a] bg-[#0a0a0a] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.65)]"
+        aria-describedby="confirmation-message"
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-[#3a3a3a] bg-[#222222]/95 shadow-[0_26px_90px_rgba(0,0,0,0.72)] ring-1 ring-white/5 backdrop-blur"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="mb-5 flex items-start gap-4">
-          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border ${isDanger ? "border-[#dc2626]/30 bg-[#dc2626]/10 text-[#dc2626]" : "border-[#5682B1]/30 bg-[#5682B1]/10 text-[#739EC9]"}`}>
-            <AlertCircle className="h-5 w-5" />
+        <div className={`h-1 ${isDanger ? "bg-[#dc2626]" : "bg-[#5682B1]"}`} />
+        <div className="p-5 sm:p-6">
+          <div className="mb-5 flex items-start gap-4">
+            <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border ${isDanger ? "border-[#dc2626]/35 bg-[#dc2626]/12 text-[#ef4444]" : "border-[#5682B1]/35 bg-[#5682B1]/12 text-[#739EC9]"}`}>
+              <Icon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1 pr-8">
+              <p className={`mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] ${isDanger ? "text-[#ef4444]" : "text-[#739EC9]"}`}>
+                {isDanger ? "Destructive action" : "Confirmation required"}
+              </p>
+              <h2 id="confirmation-title" className="text-xl font-medium leading-7 text-[#FFE8DB]">{title}</h2>
+              <p id="confirmation-message" className="mt-2 text-sm leading-6 text-[#b9b1ad]">{message}</p>
+            </div>
+            <button type="button" onClick={onCancel} className="rounded p-1 text-[#8d8885] transition-colors hover:bg-white/5 hover:text-[#FFE8DB]" aria-label="Dismiss confirmation">
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <div>
-            <h2 id="confirmation-title" className="mb-2 text-lg font-medium text-[#FFE8DB]">{title}</h2>
-            <p className="text-sm leading-6 text-[#9a9a9a]">{message}</p>
+          <div className="flex flex-col-reverse gap-3 border-t border-[#3a3a3a] pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-[#8f8f8f]">Press Esc to cancel or Enter to confirm.</p>
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+              <Button variant={isDanger ? "danger" : "primary"} onClick={onConfirm}>{confirmLabel}</Button>
+            </div>
           </div>
-        </div>
-        <div className="flex justify-end gap-3 border-t border-[#2a2a2a] pt-5">
-          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-          <Button variant={isDanger ? "danger" : "primary"} onClick={onConfirm}>{confirmLabel}</Button>
         </div>
       </div>
     </div>
