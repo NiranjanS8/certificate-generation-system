@@ -1021,7 +1021,7 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction, 
     setMessage("");
     setBusyRecipientId(generatingFor.id);
     try {
-      await api(
+      const certificate = await api(
         "/api/certificates/generate",
         {
           method: "POST",
@@ -1035,7 +1035,16 @@ function Recipients({ data, session, refresh, onViewCertificate, confirmAction, 
       );
       setGeneratingFor(null);
       await refresh();
-      notify("Certificate generated.");
+      notify({
+        title: "Certificate generated.",
+        description: `${certificate.recipientName || generatingFor.fullName}'s certificate is ready.`,
+        actions: [
+          {
+            label: "View certificate",
+            onClick: () => onViewCertificate(certificate.id),
+          },
+        ],
+      });
     } catch (error) {
       notify(readError(error), "error");
     } finally {
@@ -1909,7 +1918,16 @@ function Generate({ data, session, refresh, onViewCertificate, notify }) {
       formElement.reset();
       await refresh();
       setGeneratedCertificate(certificate);
-      notify("Certificate generated.");
+      notify({
+        title: "Certificate generated.",
+        description: `${certificate.recipientName || "The certificate"} is ready.`,
+        actions: [
+          {
+            label: "View certificate",
+            onClick: () => onViewCertificate(certificate.id),
+          },
+        ],
+      });
     } catch (error) {
       setMessage(readError(error));
     } finally {

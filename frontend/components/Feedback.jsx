@@ -79,7 +79,7 @@ export function Toast({ toast, onClose }) {
             <p className="text-base font-medium leading-6 text-[#FFE8DB]">{title}</p>
             <p className="mt-1 text-sm leading-5 text-[#b9b1ad]">{description}</p>
             {actions.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center gap-4">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
                 {actions.map((action) => (
                   <button
                     key={action.label}
@@ -88,7 +88,7 @@ export function Toast({ toast, onClose }) {
                       action.onClick?.();
                       if (action.closeOnClick !== false) onClose();
                     }}
-                    className="text-sm font-medium text-[#d8d0cb] transition-colors hover:text-[#FFE8DB]"
+                    className="rounded bg-[#5682B1] px-3 py-1.5 text-sm font-medium text-[#000000] transition-colors hover:bg-[#739EC9] focus:outline-none focus:ring-2 focus:ring-[#739EC9]/60 focus:ring-offset-2 focus:ring-offset-[#222222]"
                   >
                     {action.label}
                   </button>
