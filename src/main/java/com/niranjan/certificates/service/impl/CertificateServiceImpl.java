@@ -12,6 +12,7 @@ import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.repository.RecipientRepository;
 import com.niranjan.certificates.repository.SignatoryRepository;
 import com.niranjan.certificates.service.CertificateService;
+import com.niranjan.certificates.service.ImageService;
 import com.niranjan.certificates.service.PdfService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -35,6 +36,7 @@ public class CertificateServiceImpl implements CertificateService {
     private final RecipientRepository recipientRepository;
     private final SignatoryRepository signatoryRepository;
     private final PdfService pdfService;
+    private final ImageService imageService;
 
     private static final String DUPLICATE_RECIPIENT_CERTIFICATE_MESSAGE =
             "A certificate has already been generated for this recipient.";
@@ -78,29 +80,33 @@ public class CertificateServiceImpl implements CertificateService {
         // Generate unique code: CERT-XXXXXX
         String uniqueCode = generateUniqueCode();
 
-        // Generate PDF
-        String filePath = pdfService.generateCertificate(org, recipient, signatory,
-                request.getCertificateTitle(), uniqueCode);
-
-        // Save certificate entity
-        Certificate certificate = Certificate.builder()
-                .organization(org)
-                .recipient(recipient)
-                .signatory(signatory)
-                .certificateTitle(request.getCertificateTitle())
-                .uniqueCode(uniqueCode)
-                .fileUrl(filePath)
-                .status(CertificateStatus.ISSUED)
-                .build();
-
+        String pdfPath = null;
+        String imagePath = null;
         try {
+            pdfPath = pdfService.generateCertificate(org, recipient, signatory,
+                    request.getCertificateTitle(), uniqueCode);
+            imagePath = imageService.generateCertificateImage(org, recipient, signatory,
+                    request.getCertificateTitle(), uniqueCode);
+
+            Certificate certificate = Certificate.builder()
+                    .organization(org)
+                    .recipient(recipient)
+                    .signatory(signatory)
+                    .certificateTitle(request.getCertificateTitle())
+                    .uniqueCode(uniqueCode)
+                    .fileUrl(pdfPath)
+                    .status(CertificateStatus.ISSUED)
+                    .build();
+
             Certificate saved = certificateRepository.save(certificate);
             return mapToResponse(saved);
         } catch (DataIntegrityViolationException ex) {
-            deleteGeneratedPdf(filePath);
+            deleteGeneratedFile(pdfPath);
+            deleteGeneratedFile(imagePath);
             throw duplicateCertificateException(recipient, course);
         } catch (RuntimeException ex) {
-            deleteGeneratedPdf(filePath);
+            deleteGeneratedFile(pdfPath);
+            deleteGeneratedFile(imagePath);
             throw ex;
         }
     }
@@ -149,6 +155,8 @@ public class CertificateServiceImpl implements CertificateService {
 
         String filePath = pdfService.generateCertificate(certificate.getOrganization(), recipient, signatory,
                 request.getCertificateTitle(), certificate.getUniqueCode());
+        imageService.generateCertificateImage(certificate.getOrganization(), recipient, signatory,
+                request.getCertificateTitle(), certificate.getUniqueCode());
 
         certificate.setRecipient(recipient);
         certificate.setSignatory(signatory);
@@ -180,6 +188,31 @@ public class CertificateServiceImpl implements CertificateService {
             return Files.readAllBytes(path);
         } catch (IOException e) {
             throw new RuntimeException("Failed to read certificate PDF file", e);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] downloadImage(UUID orgId, UUID id) {
+        Certificate certificate = certificateRepository.findByIdAndOrganizationId(id, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Certificate", "id", id));
+
+        Path imagePath = certificate.getFileUrl() == null || certificate.getFileUrl().isBlank()
+                ? null
+                : imagePathFor(certificate);
+        if (imagePath == null || !Files.exists(imagePath)) {
+            imagePath = Paths.get(imageService.generateCertificateImage(
+                    certificate.getOrganization(),
+                    certificate.getRecipient(),
+                    certificate.getSignatory(),
+                    certificate.getCertificateTitle(),
+                    certificate.getUniqueCode()));
+        }
+
+        try {
+            return Files.readAllBytes(imagePath);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read certificate image file", e);
         }
     }
 
@@ -229,7 +262,12 @@ public class CertificateServiceImpl implements CertificateService {
                 recipient.getFullName(), course.getName()));
     }
 
-    private void deleteGeneratedPdf(String filePath) {
+    private Path imagePathFor(Certificate certificate) {
+        Path pdfPath = Paths.get(certificate.getFileUrl());
+        return pdfPath.resolveSibling(certificate.getUniqueCode() + ".png");
+    }
+
+    private void deleteGeneratedFile(String filePath) {
         if (filePath == null || filePath.isBlank()) {
             return;
         }

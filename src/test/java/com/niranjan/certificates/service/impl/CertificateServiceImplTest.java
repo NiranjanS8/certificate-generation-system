@@ -10,6 +10,7 @@ import com.niranjan.certificates.repository.CertificateRepository;
 import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.repository.RecipientRepository;
 import com.niranjan.certificates.repository.SignatoryRepository;
+import com.niranjan.certificates.service.ImageService;
 import com.niranjan.certificates.service.PdfService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,13 +36,15 @@ class CertificateServiceImplTest {
     private final RecipientRepository recipientRepository = mock(RecipientRepository.class);
     private final SignatoryRepository signatoryRepository = mock(SignatoryRepository.class);
     private final PdfService pdfService = mock(PdfService.class);
+    private final ImageService imageService = mock(ImageService.class);
 
     private final CertificateServiceImpl service = new CertificateServiceImpl(
             certificateRepository,
             organizationRepository,
             recipientRepository,
             signatoryRepository,
-            pdfService);
+            pdfService,
+            imageService);
 
     @Test
     void generateRejectsDuplicateCertificateForSameRecipientCourse() {
@@ -92,6 +95,12 @@ class CertificateServiceImplTest {
                 any(),
                 anyString(),
                 anyString());
+        verify(imageService, never()).generateCertificateImage(
+                any(),
+                any(),
+                any(),
+                anyString(),
+                anyString());
     }
 
     @Test
@@ -137,6 +146,12 @@ class CertificateServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> service.generate(orgId, request));
 
         verify(pdfService, never()).generateCertificate(
+                any(),
+                any(),
+                any(),
+                anyString(),
+                anyString());
+        verify(imageService, never()).generateCertificateImage(
                 any(),
                 any(),
                 any(),

@@ -67,6 +67,19 @@ public class CertificateController {
         return ResponseEntity.ok().headers(headers).body(pdfBytes);
     }
 
+    @GetMapping("/api/certificates/download-image/{id}")
+    public ResponseEntity<byte[]> downloadImage(@AuthenticationPrincipal OrganizationPrincipal principal,
+                                                @PathVariable UUID id) {
+        byte[] imageBytes = certificateService.downloadImage(principal.getOrgId(), id);
+        String uniqueCode = certificateService.getUniqueCodeById(principal.getOrgId(), id);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.IMAGE_PNG);
+        headers.setContentDispositionFormData("attachment", uniqueCode + ".png");
+
+        return ResponseEntity.ok().headers(headers).body(imageBytes);
+    }
+
     // PUBLIC endpoint — no auth required, no X-Org-Id needed
     @GetMapping("/api/verify/{uniqueCode}")
     public ResponseEntity<VerifyResponse> verify(@PathVariable String uniqueCode) {

@@ -14,6 +14,7 @@ import {
   Download,
   Eye,
   FileCheck,
+  FileImage,
   FileSignature,
   FileText,
   Github,
@@ -1704,13 +1705,14 @@ function Certificates({ data, session, refresh, onViewCertificate, onNavigate, c
     { key: "actions", label: "Actions", width: "10%" },
   ];
 
-  async function download(id, code) {
+  async function download(id, code, format = "pdf") {
     if (String(id).startsWith("CERT-")) return;
-    const blob = await api(`/api/certificates/download/${id}`, {}, session);
+    const isImage = format === "png";
+    const blob = await api(`/api/certificates/${isImage ? "download-image" : "download"}/${id}`, {}, session);
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${code || "certificate"}.pdf`;
+    link.download = `${code || "certificate"}.${isImage ? "png" : "pdf"}`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -1834,6 +1836,7 @@ function Certificates({ data, session, refresh, onViewCertificate, onNavigate, c
               <div className="flex gap-2">
                 <IconButton title="View certificate" icon={Eye} onClick={() => onViewCertificate(cert.id)} />
                 <IconButton title="Download PDF" icon={Download} onClick={() => download(cert.id, cert.uniqueCode)} />
+                <IconButton title="Download image" icon={FileImage} onClick={() => download(cert.id, cert.uniqueCode, "png")} />
                 <RowActionMenu
                   menuTitle="Certificate actions"
                   open={openMenuId === cert.id}
@@ -1970,9 +1973,9 @@ function Generate({ data, session, refresh, onViewCertificate, notify }) {
 
 function CertificateDetail({ certificateId, certificates, onBack, session }) {
   const certificate = certificates.find((cert) => cert.id === certificateId);
-  const [pdfUrl, setPdfUrl] = useState("");
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [pdfError, setPdfError] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState("");
   const [shareMessage, setShareMessage] = useState("");
 
   useEffect(() => {
@@ -1981,23 +1984,23 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
     let objectUrl = "";
     let cancelled = false;
 
-    async function loadPdf() {
-      setPdfLoading(true);
-      setPdfError("");
-      setPdfUrl("");
+    async function loadImage() {
+      setImageLoading(true);
+      setImageError("");
+      setImageUrl("");
       try {
-        const blob = await api(`/api/certificates/download/${certificate.id}`, {}, session);
+        const blob = await api(`/api/certificates/download-image/${certificate.id}`, {}, session);
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
-        setPdfUrl(`${objectUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`);
+        setImageUrl(objectUrl);
       } catch (error) {
-        if (!cancelled) setPdfError(readError(error));
+        if (!cancelled) setImageError(readError(error));
       } finally {
-        if (!cancelled) setPdfLoading(false);
+        if (!cancelled) setImageLoading(false);
       }
     }
 
-    loadPdf();
+    loadImage();
 
     return () => {
       cancelled = true;
@@ -2005,13 +2008,24 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
     };
   }, [certificate?.id, session.token]);
 
-  async function download() {
+  async function downloadPdf() {
     if (!certificate) return;
     const blob = await api(`/api/certificates/download/${certificate.id}`, {}, session);
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = `${certificate.uniqueCode || "certificate"}.pdf`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function downloadImage() {
+    if (!certificate) return;
+    const blob = await api(`/api/certificates/download-image/${certificate.id}`, {}, session);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${certificate.uniqueCode || "certificate"}.png`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -2058,25 +2072,25 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
           <div>
             <div className="rounded border border-[#2a2a2a] bg-[#0a0a0a] p-3">
               <div className="min-h-[520px] overflow-hidden rounded border border-[#2a2a2a] bg-[#1a1a1a]">
-                {pdfLoading && (
+                {imageLoading && (
                   <div className="flex min-h-[520px] items-center justify-center text-sm text-[#739EC9]">
-                    Loading certificate PDF...
+                    Loading certificate image...
                   </div>
                 )}
-                {pdfError && (
+                {imageError && (
                   <div className="flex min-h-[520px] items-center justify-center p-6 text-center">
                     <div>
                       <AlertCircle className="mx-auto mb-3 h-8 w-8 text-[#dc2626]" />
-                      <p className="mb-2 text-sm text-[#FFE8DB]">Unable to load certificate PDF</p>
-                      <p className="text-xs text-[#9a9a9a]">{pdfError}</p>
+                      <p className="mb-2 text-sm text-[#FFE8DB]">Unable to load certificate image</p>
+                      <p className="text-xs text-[#9a9a9a]">{imageError}</p>
                     </div>
                   </div>
                 )}
-                {pdfUrl && !pdfLoading && !pdfError && (
-                  <iframe
-                    title={`${displayCertificateId(certificate)} PDF`}
-                    src={pdfUrl}
-                    className="h-[72vh] min-h-[520px] w-full bg-[#1a1a1a]"
+                {imageUrl && !imageLoading && !imageError && (
+                  <img
+                    src={imageUrl}
+                    alt={`${displayCertificateId(certificate)} certificate`}
+                    className="h-[72vh] min-h-[520px] w-full bg-[#1a1a1a] object-contain"
                   />
                 )}
               </div>
@@ -2084,11 +2098,12 @@ function CertificateDetail({ certificateId, certificates, onBack, session }) {
             <div className="mt-4 rounded border border-[#2a2a2a] bg-[#0a0a0a] p-4">
               <div className="mb-4">
                 <DetailLabel>Actions</DetailLabel>
-                <p className="mt-1 text-sm text-[#9a9a9a]">Download the PDF or copy a public verification link.</p>
+                <p className="mt-1 text-sm text-[#9a9a9a]">Download the certificate as a PDF or PNG, or copy a public verification link.</p>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button variant="primary" fullWidth onClick={download}><Download className="h-4 w-4" />Download PDF</Button>
-                <Button variant="secondary" fullWidth onClick={shareCertificate}><Share2 className="h-4 w-4" />Share Verification Link</Button>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Button variant="primary" fullWidth onClick={downloadPdf}><Download className="h-4 w-4" />PDF</Button>
+                <Button variant="secondary" fullWidth onClick={downloadImage}><FileImage className="h-4 w-4" />PNG</Button>
+                <Button variant="secondary" fullWidth onClick={shareCertificate}><Share2 className="h-4 w-4" />Share Link</Button>
               </div>
               {shareMessage && <p className="mt-3 text-xs text-[#739EC9]">{shareMessage}</p>}
             </div>

@@ -21,6 +21,8 @@ public interface CertificateService {
 
     byte[] downloadPdf(UUID orgId, UUID id);
 
+    byte[] downloadImage(UUID orgId, UUID id);
+
     String getUniqueCodeById(UUID orgId, UUID id);
 
     VerifyResponse verify(String uniqueCode);
