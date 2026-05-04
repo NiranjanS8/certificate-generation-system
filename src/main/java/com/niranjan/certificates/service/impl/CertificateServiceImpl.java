@@ -85,8 +85,7 @@ public class CertificateServiceImpl implements CertificateService {
         try {
             pdfPath = pdfService.generateCertificate(org, recipient, signatory,
                     request.getCertificateTitle(), uniqueCode);
-            imagePath = imageService.generateCertificateImage(org, recipient, signatory,
-                    request.getCertificateTitle(), uniqueCode);
+            imagePath = imageService.generateCertificateImage(pdfPath, uniqueCode);
 
             Certificate certificate = Certificate.builder()
                     .organization(org)
@@ -155,8 +154,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         String filePath = pdfService.generateCertificate(certificate.getOrganization(), recipient, signatory,
                 request.getCertificateTitle(), certificate.getUniqueCode());
-        imageService.generateCertificateImage(certificate.getOrganization(), recipient, signatory,
-                request.getCertificateTitle(), certificate.getUniqueCode());
+        imageService.generateCertificateImage(filePath, certificate.getUniqueCode());
 
         certificate.setRecipient(recipient);
         certificate.setSignatory(signatory);
@@ -202,10 +200,7 @@ public class CertificateServiceImpl implements CertificateService {
                 : imagePathFor(certificate);
         if (imagePath == null || !Files.exists(imagePath)) {
             imagePath = Paths.get(imageService.generateCertificateImage(
-                    certificate.getOrganization(),
-                    certificate.getRecipient(),
-                    certificate.getSignatory(),
-                    certificate.getCertificateTitle(),
+                    certificate.getFileUrl(),
                     certificate.getUniqueCode()));
         }
 

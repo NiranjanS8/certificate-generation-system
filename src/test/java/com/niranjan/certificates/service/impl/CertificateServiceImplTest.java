@@ -96,9 +96,6 @@ class CertificateServiceImplTest {
                 anyString(),
                 anyString());
         verify(imageService, never()).generateCertificateImage(
-                any(),
-                any(),
-                any(),
                 anyString(),
                 anyString());
     }
@@ -152,9 +149,6 @@ class CertificateServiceImplTest {
                 anyString(),
                 anyString());
         verify(imageService, never()).generateCertificateImage(
-                any(),
-                any(),
-                any(),
                 anyString(),
                 anyString());
     }

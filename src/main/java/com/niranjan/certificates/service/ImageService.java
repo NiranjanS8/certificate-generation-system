@@ -1,15 +1,10 @@
 package com.niranjan.certificates.service;
 
-import com.niranjan.certificates.entity.Organization;
-import com.niranjan.certificates.entity.Recipient;
-import com.niranjan.certificates.entity.Signatory;
-
 public interface ImageService {
 
     /**
-     * Generate a landscape certificate image and save it to disk.
+     * Render the first page of a generated certificate PDF as a PNG image.
      * @return the file path where the PNG image was saved
      */
-    String generateCertificateImage(Organization org, Recipient recipient, Signatory signatory,
-                                    String certificateTitle, String uniqueCode);
+    String generateCertificateImage(String pdfPath, String uniqueCode);
 }

@@ -836,7 +836,12 @@ function Workspace({ currentPage, setCurrentPage, data, loading, session, refres
 }
 
 function Dashboard({ data, loading, onNavigate }) {
-  const recentCertificates = data.certificates.slice(0, 5);
+  const recentCertificates = useMemo(
+    () => [...data.certificates]
+      .sort((a, b) => new Date(b.issuedAt || 0).getTime() - new Date(a.issuedAt || 0).getTime())
+      .slice(0, 5),
+    [data.certificates],
+  );
   const issued = data.certificates.filter((cert) => cert.status === "ISSUED" || cert.status === "issued").length;
   const revoked = data.certificates.filter((cert) => cert.status === "REVOKED" || cert.status === "revoked").length;
   const issuedThisWeek = data.certificates.filter((cert) => {
