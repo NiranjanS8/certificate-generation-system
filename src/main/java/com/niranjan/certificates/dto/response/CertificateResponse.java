@@ -27,6 +27,8 @@ public class CertificateResponse {
     private String certificateTitle;
     private String uniqueCode;
     private String fileUrl;
+    private String pdfUrl;
+    private String imageUrl;
     private String status;
     private LocalDateTime issuedAt;
 }

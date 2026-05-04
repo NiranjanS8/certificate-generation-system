@@ -94,6 +94,8 @@ public class CertificateServiceImpl implements CertificateService {
                     .certificateTitle(request.getCertificateTitle())
                     .uniqueCode(uniqueCode)
                     .fileUrl(pdfPath)
+                    .pdfUrl(pdfPath)
+                    .imageUrl(imagePath)
                     .status(CertificateStatus.ISSUED)
                     .build();
 
@@ -154,12 +156,14 @@ public class CertificateServiceImpl implements CertificateService {
 
         String filePath = pdfService.generateCertificate(certificate.getOrganization(), recipient, signatory,
                 request.getCertificateTitle(), certificate.getUniqueCode());
-        imageService.generateCertificateImage(filePath, certificate.getUniqueCode());
+        String imagePath = imageService.generateCertificateImage(filePath, certificate.getUniqueCode());
 
         certificate.setRecipient(recipient);
         certificate.setSignatory(signatory);
         certificate.setCertificateTitle(request.getCertificateTitle());
         certificate.setFileUrl(filePath);
+        certificate.setPdfUrl(filePath);
+        certificate.setImageUrl(imagePath);
 
         Certificate saved = certificateRepository.save(certificate);
         return mapToResponse(saved);
@@ -181,7 +185,7 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = certificateRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Certificate", "id", id));
 
-        Path path = Paths.get(certificate.getFileUrl());
+        Path path = Paths.get(effectivePdfUrl(certificate));
         try {
             return Files.readAllBytes(path);
         } catch (IOException e) {
@@ -190,18 +194,21 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public byte[] downloadImage(UUID orgId, UUID id) {
         Certificate certificate = certificateRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Certificate", "id", id));
 
-        Path imagePath = certificate.getFileUrl() == null || certificate.getFileUrl().isBlank()
+        String imageUrl = effectiveImageUrl(certificate);
+        Path imagePath = imageUrl == null
                 ? null
-                : imagePathFor(certificate);
+                : Paths.get(imageUrl);
         if (imagePath == null || !Files.exists(imagePath)) {
             imagePath = Paths.get(imageService.generateCertificateImage(
-                    certificate.getFileUrl(),
+                    effectivePdfUrl(certificate),
                     certificate.getUniqueCode()));
+            certificate.setImageUrl(imagePath.toString());
+            certificateRepository.save(certificate);
         }
 
         try {
@@ -257,9 +264,27 @@ public class CertificateServiceImpl implements CertificateService {
                 recipient.getFullName(), course.getName()));
     }
 
-    private Path imagePathFor(Certificate certificate) {
-        Path pdfPath = Paths.get(certificate.getFileUrl());
-        return pdfPath.resolveSibling(certificate.getUniqueCode() + ".png");
+    private String effectivePdfUrl(Certificate certificate) {
+        if (certificate.getPdfUrl() != null && !certificate.getPdfUrl().isBlank()) {
+            return certificate.getPdfUrl();
+        }
+        return certificate.getFileUrl();
+    }
+
+    private String effectiveImageUrl(Certificate certificate) {
+        if (certificate.getImageUrl() != null && !certificate.getImageUrl().isBlank()) {
+            return certificate.getImageUrl();
+        }
+        String pdfUrl = effectivePdfUrl(certificate);
+        if (pdfUrl == null || pdfUrl.isBlank()) {
+            return null;
+        }
+        return imagePathFor(pdfUrl, certificate.getUniqueCode()).toString();
+    }
+
+    private Path imagePathFor(String pdfUrl, String uniqueCode) {
+        Path pdfPath = Paths.get(pdfUrl);
+        return pdfPath.resolveSibling(uniqueCode + ".png");
     }
 
     private void deleteGeneratedFile(String filePath) {
@@ -287,6 +312,8 @@ public class CertificateServiceImpl implements CertificateService {
                 .certificateTitle(certificate.getCertificateTitle())
                 .uniqueCode(certificate.getUniqueCode())
                 .fileUrl(certificate.getFileUrl())
+                .pdfUrl(effectivePdfUrl(certificate))
+                .imageUrl(effectiveImageUrl(certificate))
                 .status(certificate.getStatus().name())
                 .issuedAt(certificate.getIssuedAt())
                 .build();

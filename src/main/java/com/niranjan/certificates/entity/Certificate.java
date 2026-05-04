@@ -48,6 +48,12 @@ public class Certificate {
     @Column(name = "file_url")
     private String fileUrl;
 
+    @Column(name = "pdf_url")
+    private String pdfUrl;
+
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CertificateStatus status;
