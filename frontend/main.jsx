@@ -41,7 +41,7 @@ import {
 import { api, appName, appTagline, emptySession, storageKey } from "./api/client.js";
 import { Button } from "./components/Button.jsx";
 import { ConfirmationDialog, Toast } from "./components/Feedback.jsx";
-import { FormError, FormField, Input, Detail } from "./components/AppUi.jsx";
+import { FormError, FormField, Input, Detail, StatusBadge } from "./components/AppUi.jsx";
 import { Dashboard } from "./pages/Dashboard.jsx";
 import { Recipients } from "./pages/Recipients.jsx";
 import { Courses } from "./pages/Courses.jsx";

@@ -1,6 +1,7 @@
 package com.niranjan.certificates.repository;
 
 import com.niranjan.certificates.entity.Certificate;
+import com.niranjan.certificates.entity.CertificateStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -14,6 +15,9 @@ public interface CertificateRepository extends JpaRepository<Certificate, UUID> 
     Optional<Certificate> findByIdAndOrganizationId(UUID id, UUID orgId);
 
     Optional<Certificate> findByUniqueCode(String uniqueCode);
+
+    Optional<Certificate> findByOrganizationIdAndRecipientIdAndRecipientCourseIdAndStatus(
+            UUID orgId, UUID recipientId, UUID courseId, CertificateStatus status);
 
     boolean existsByUniqueCode(String uniqueCode);
 

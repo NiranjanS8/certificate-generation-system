@@ -1,11 +1,13 @@
 package com.niranjan.certificates.service.impl;
 
 import com.niranjan.certificates.dto.request.CertificateRequest;
+import com.niranjan.certificates.dto.response.CertificateResponse;
+import com.niranjan.certificates.entity.Certificate;
+import com.niranjan.certificates.entity.CertificateStatus;
 import com.niranjan.certificates.entity.Course;
 import com.niranjan.certificates.entity.Organization;
 import com.niranjan.certificates.entity.Recipient;
 import com.niranjan.certificates.entity.Signatory;
-import com.niranjan.certificates.exception.DuplicateResourceException;
 import com.niranjan.certificates.repository.CertificateRepository;
 import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.repository.RecipientRepository;
@@ -17,9 +19,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
@@ -47,11 +51,12 @@ class CertificateServiceImplTest {
             imageService);
 
     @Test
-    void generateRejectsDuplicateCertificateForSameRecipientCourse() {
+    void generateReturnsExistingIssuedCertificateForDuplicateRecipientCourse() {
         UUID orgId = UUID.randomUUID();
         UUID courseId = UUID.randomUUID();
         UUID recipientId = UUID.randomUUID();
         UUID signatoryId = UUID.randomUUID();
+        UUID certificateId = UUID.randomUUID();
 
         Organization organization = Organization.builder()
                 .id(orgId)
@@ -80,14 +85,31 @@ class CertificateServiceImplTest {
                 .name("Dr. Sarah Johnson")
                 .build();
 
+        Certificate existingCertificate = Certificate.builder()
+                .id(certificateId)
+                .organization(organization)
+                .recipient(recipient)
+                .signatory(signatory)
+                .certificateTitle("Certificate of Completion")
+                .uniqueCode("CERT-ABC123")
+                .fileUrl("uploads/certificates/CERT-ABC123.pdf")
+                .pdfUrl("uploads/certificates/CERT-ABC123.pdf")
+                .imageUrl("uploads/certificates/CERT-ABC123.png")
+                .status(CertificateStatus.ISSUED)
+                .issuedAt(LocalDateTime.now())
+                .build();
+
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(organization));
         when(recipientRepository.findByIdAndOrganizationId(recipientId, orgId)).thenReturn(Optional.of(recipient));
-        when(signatoryRepository.findByIdAndOrganizationId(signatoryId, orgId)).thenReturn(Optional.of(signatory));
-        when(certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipientId)).thenReturn(true);
+        when(certificateRepository.findByOrganizationIdAndRecipientIdAndRecipientCourseIdAndStatus(
+                orgId, recipientId, courseId, CertificateStatus.ISSUED)).thenReturn(Optional.of(existingCertificate));
 
         CertificateRequest request = new CertificateRequest(recipientId, signatoryId, "Certificate of Completion");
 
-        assertThrows(DuplicateResourceException.class, () -> service.generate(orgId, request));
+        CertificateResponse response = service.generate(orgId, request);
+
+        assertEquals(certificateId, response.getId());
+        assertEquals("CERT-ABC123", response.getUniqueCode());
 
         verify(pdfService, never()).generateCertificate(
                 any(),
@@ -136,6 +158,8 @@ class CertificateServiceImplTest {
 
         when(organizationRepository.findById(orgId)).thenReturn(Optional.of(organization));
         when(recipientRepository.findByIdAndOrganizationId(recipientId, orgId)).thenReturn(Optional.of(recipient));
+        when(certificateRepository.findByOrganizationIdAndRecipientIdAndRecipientCourseIdAndStatus(
+                orgId, recipientId, courseId, CertificateStatus.ISSUED)).thenReturn(Optional.empty());
         when(signatoryRepository.findByIdAndOrganizationId(signatoryId, orgId)).thenReturn(Optional.of(signatory));
 
         CertificateRequest request = new CertificateRequest(recipientId, signatoryId, "Certificate of Completion");

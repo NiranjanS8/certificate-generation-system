@@ -52,15 +52,18 @@ public class CertificateServiceImpl implements CertificateService {
         Recipient recipient = recipientRepository.findByIdAndOrganizationId(request.getRecipientId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recipient", "id", request.getRecipientId()));
 
-        if (certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {
-            throw new DuplicateResourceException(DUPLICATE_RECIPIENT_CERTIFICATE_MESSAGE);
+        Course course = recipient.getCourse();
+        Certificate existingCertificate = certificateRepository.findByOrganizationIdAndRecipientIdAndRecipientCourseIdAndStatus(
+                        orgId, recipient.getId(), course.getId(), CertificateStatus.ISSUED)
+                .orElse(null);
+        if (existingCertificate != null) {
+            return mapToResponse(existingCertificate);
         }
 
         Signatory signatory = signatoryRepository.findByIdAndOrganizationId(request.getSignatoryId(), orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Signatory", "id", request.getSignatoryId()));
 
         // Score eligibility check against course minimum score
-        Course course = recipient.getCourse();
         if (Boolean.FALSE.equals(course.getIsActive())) {
             throw new IllegalArgumentException("Cannot generate certificate for inactive course: " + course.getName());
         }
@@ -73,8 +76,11 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
 
-        if (certificateRepository.existsByOrganizationIdAndRecipientId(orgId, recipient.getId())) {
-            throw duplicateCertificateException(recipient, course);
+        existingCertificate = certificateRepository.findByOrganizationIdAndRecipientIdAndRecipientCourseIdAndStatus(
+                        orgId, recipient.getId(), course.getId(), CertificateStatus.ISSUED)
+                .orElse(null);
+        if (existingCertificate != null) {
+            return mapToResponse(existingCertificate);
         }
 
         // Generate unique code: CERT-XXXXXX
@@ -99,7 +105,7 @@ public class CertificateServiceImpl implements CertificateService {
                     .status(CertificateStatus.ISSUED)
                     .build();
 
-            Certificate saved = certificateRepository.save(certificate);
+            Certificate saved = certificateRepository.saveAndFlush(certificate);
             return mapToResponse(saved);
         } catch (DataIntegrityViolationException ex) {
             deleteGeneratedFile(pdfPath);
@@ -318,4 +324,5 @@ public class CertificateServiceImpl implements CertificateService {
                 .issuedAt(certificate.getIssuedAt())
                 .build();
     }
+
 }
