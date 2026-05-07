@@ -1,7 +1,9 @@
 package com.niranjan.certificates.controller;
 
 import com.niranjan.certificates.dto.request.CourseRequest;
+import com.niranjan.certificates.dto.request.ListQuery;
 import com.niranjan.certificates.dto.response.CourseResponse;
+import com.niranjan.certificates.dto.response.PageResponse;
 import com.niranjan.certificates.security.OrganizationPrincipal;
 import com.niranjan.certificates.service.CourseService;
 import jakarta.validation.Valid;
@@ -11,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -29,8 +30,9 @@ public class CourseController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CourseResponse>> getAll(@AuthenticationPrincipal OrganizationPrincipal principal) {
-        return ResponseEntity.ok(courseService.getAll(principal.getOrgId()));
+    public ResponseEntity<PageResponse<CourseResponse>> getAll(@AuthenticationPrincipal OrganizationPrincipal principal,
+                                                              @ModelAttribute ListQuery query) {
+        return ResponseEntity.ok(courseService.search(principal.getOrgId(), query));
     }
 
     @GetMapping("/{id}")

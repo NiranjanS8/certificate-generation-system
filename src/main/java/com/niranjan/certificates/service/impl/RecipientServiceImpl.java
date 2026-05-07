@@ -1,7 +1,11 @@
 package com.niranjan.certificates.service.impl;
 
+import com.niranjan.certificates.dto.request.ListQuery;
 import com.niranjan.certificates.dto.request.RecipientRequest;
+import com.niranjan.certificates.dto.response.PageResponse;
 import com.niranjan.certificates.dto.response.RecipientResponse;
+import com.niranjan.certificates.entity.Certificate;
+import com.niranjan.certificates.entity.CertificateStatus;
 import com.niranjan.certificates.entity.Course;
 import com.niranjan.certificates.entity.Organization;
 import com.niranjan.certificates.entity.Recipient;
@@ -12,14 +16,19 @@ import com.niranjan.certificates.repository.CourseRepository;
 import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.repository.RecipientRepository;
 import com.niranjan.certificates.service.RecipientService;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -30,6 +39,9 @@ public class RecipientServiceImpl implements RecipientService {
     private final OrganizationRepository organizationRepository;
     private final CourseRepository courseRepository;
     private final CertificateRepository certificateRepository;
+    private static final Set<String> ALLOWED_SORTS = Set.of(
+            "createdAt", "fullName", "email", "score", "grade", "completionDate", "courseName");
+    private static final Map<String, String> SORT_ALIASES = Map.of("courseName", "course.name");
 
     @Override
     @Transactional
@@ -62,6 +74,13 @@ public class RecipientServiceImpl implements RecipientService {
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<RecipientResponse> search(UUID orgId, ListQuery query) {
+        Pageable pageable = query.toPageable("createdAt", ALLOWED_SORTS, SORT_ALIASES);
+        return PageResponse.from(recipientRepository.findAll(recipientSpec(orgId, query), pageable), this::mapToResponse);
     }
 
     @Override
@@ -126,6 +145,50 @@ public class RecipientServiceImpl implements RecipientService {
                 .completionDate(recipient.getCompletionDate())
                 .createdAt(recipient.getCreatedAt())
                 .build();
+    }
+
+    private Specification<Recipient> recipientSpec(UUID orgId, ListQuery query) {
+        return (root, criteriaQuery, cb) -> {
+            var predicate = cb.equal(root.get("organization").get("id"), orgId);
+
+            String search = query.normalizedSearch();
+            if (search != null) {
+                String pattern = "%" + search + "%";
+                predicate = cb.and(predicate, cb.or(
+                        cb.like(cb.lower(root.get("fullName")), pattern),
+                        cb.like(cb.lower(root.get("email")), pattern),
+                        cb.like(cb.lower(root.get("course").get("name")), pattern)
+                ));
+            }
+
+            if (query.getCourseId() != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("course").get("id"), query.getCourseId()));
+            }
+
+            String status = query.normalizedStatus();
+            if (status != null && !"all".equals(status)) {
+                Subquery<UUID> certificateSubquery = criteriaQuery.subquery(UUID.class);
+                var certificateRoot = certificateSubquery.from(Certificate.class);
+                certificateSubquery.select(certificateRoot.get("id"))
+                        .where(
+                                cb.equal(certificateRoot.get("organization").get("id"), orgId),
+                                cb.equal(certificateRoot.get("recipient").get("id"), root.get("id"))
+                        );
+
+                if ("not_issued".equals(status) || "not issued".equals(status)) {
+                    predicate = cb.and(predicate, cb.not(cb.exists(certificateSubquery)));
+                } else {
+                    certificateSubquery.where(
+                            cb.equal(certificateRoot.get("organization").get("id"), orgId),
+                            cb.equal(certificateRoot.get("recipient").get("id"), root.get("id")),
+                            cb.equal(certificateRoot.get("status"), CertificateStatus.valueOf(status.toUpperCase()))
+                    );
+                    predicate = cb.and(predicate, cb.exists(certificateSubquery));
+                }
+            }
+
+            return predicate;
+        };
     }
 
     private LocalDate parseDate(String dateStr) {

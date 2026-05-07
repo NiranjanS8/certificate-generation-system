@@ -1,6 +1,8 @@
 package com.niranjan.certificates.service.impl;
 
+import com.niranjan.certificates.dto.request.ListQuery;
 import com.niranjan.certificates.dto.request.SignatoryRequest;
+import com.niranjan.certificates.dto.response.PageResponse;
 import com.niranjan.certificates.dto.response.SignatoryResponse;
 import com.niranjan.certificates.entity.Organization;
 import com.niranjan.certificates.entity.Signatory;
@@ -9,6 +11,8 @@ import com.niranjan.certificates.repository.OrganizationRepository;
 import com.niranjan.certificates.repository.SignatoryRepository;
 import com.niranjan.certificates.service.SignatoryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +21,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -25,6 +31,7 @@ public class SignatoryServiceImpl implements SignatoryService {
 
     private final SignatoryRepository signatoryRepository;
     private final OrganizationRepository organizationRepository;
+    private static final Set<String> ALLOWED_SORTS = Set.of("name", "title", "isDefault");
 
     @Override
     public SignatoryResponse create(UUID orgId, SignatoryRequest request) {
@@ -48,6 +55,12 @@ public class SignatoryServiceImpl implements SignatoryService {
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    @Override
+    public PageResponse<SignatoryResponse> search(UUID orgId, ListQuery query) {
+        Pageable pageable = query.toPageable("name", ALLOWED_SORTS, Map.of());
+        return PageResponse.from(signatoryRepository.findAll(signatorySpec(orgId, query), pageable), this::mapToResponse);
     }
 
     @Override
@@ -142,5 +155,33 @@ public class SignatoryServiceImpl implements SignatoryService {
                 .signatureUrl(signatory.getSignatureUrl())
                 .isDefault(signatory.getIsDefault())
                 .build();
+    }
+
+    private Specification<Signatory> signatorySpec(UUID orgId, ListQuery query) {
+        return (root, criteriaQuery, cb) -> {
+            var predicate = cb.equal(root.get("organization").get("id"), orgId);
+
+            String search = query.normalizedSearch();
+            if (search != null) {
+                String pattern = "%" + search + "%";
+                predicate = cb.and(predicate, cb.or(
+                        cb.like(cb.lower(root.get("name")), pattern),
+                        cb.like(cb.lower(root.get("title")), pattern)
+                ));
+            }
+
+            String status = query.normalizedStatus();
+            if ("default".equals(status)) {
+                predicate = cb.and(predicate, cb.isTrue(root.get("isDefault")));
+            } else if ("non_default".equals(status) || "non-default".equals(status)) {
+                predicate = cb.and(predicate, cb.isFalse(root.get("isDefault")));
+            } else if ("has_signature".equals(status)) {
+                predicate = cb.and(predicate, cb.isNotNull(root.get("signatureUrl")), cb.notEqual(root.get("signatureUrl"), ""));
+            } else if ("no_signature".equals(status)) {
+                predicate = cb.and(predicate, cb.or(cb.isNull(root.get("signatureUrl")), cb.equal(root.get("signatureUrl"), "")));
+            }
+
+            return predicate;
+        };
     }
 }

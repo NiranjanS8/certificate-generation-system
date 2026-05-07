@@ -1,6 +1,8 @@
 package com.niranjan.certificates.controller;
 
+import com.niranjan.certificates.dto.request.ListQuery;
 import com.niranjan.certificates.dto.request.SignatoryRequest;
+import com.niranjan.certificates.dto.response.PageResponse;
 import com.niranjan.certificates.dto.response.SignatoryResponse;
 import com.niranjan.certificates.security.OrganizationPrincipal;
 import com.niranjan.certificates.service.FileStorageService;
@@ -14,7 +16,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -33,8 +34,9 @@ public class SignatoryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<SignatoryResponse>> getAll(@AuthenticationPrincipal OrganizationPrincipal principal) {
-        return ResponseEntity.ok(signatoryService.getAll(principal.getOrgId()));
+    public ResponseEntity<PageResponse<SignatoryResponse>> getAll(@AuthenticationPrincipal OrganizationPrincipal principal,
+                                                                  @ModelAttribute ListQuery query) {
+        return ResponseEntity.ok(signatoryService.search(principal.getOrgId(), query));
     }
 
     @GetMapping("/{id}")

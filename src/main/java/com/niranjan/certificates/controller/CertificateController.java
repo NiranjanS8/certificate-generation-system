@@ -1,7 +1,9 @@
 package com.niranjan.certificates.controller;
 
 import com.niranjan.certificates.dto.request.CertificateRequest;
+import com.niranjan.certificates.dto.request.ListQuery;
 import com.niranjan.certificates.dto.response.CertificateResponse;
+import com.niranjan.certificates.dto.response.PageResponse;
 import com.niranjan.certificates.dto.response.VerifyResponse;
 import com.niranjan.certificates.security.OrganizationPrincipal;
 import com.niranjan.certificates.service.CertificateService;
@@ -14,7 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -31,8 +32,9 @@ public class CertificateController {
     }
 
     @GetMapping("/api/certificates")
-    public ResponseEntity<List<CertificateResponse>> getAll(@AuthenticationPrincipal OrganizationPrincipal principal) {
-        return ResponseEntity.ok(certificateService.getAll(principal.getOrgId()));
+    public ResponseEntity<PageResponse<CertificateResponse>> getAll(@AuthenticationPrincipal OrganizationPrincipal principal,
+                                                                    @ModelAttribute ListQuery query) {
+        return ResponseEntity.ok(certificateService.search(principal.getOrgId(), query));
     }
 
     @GetMapping("/api/certificates/{id}")

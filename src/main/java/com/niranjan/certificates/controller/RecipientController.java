@@ -1,6 +1,8 @@
 package com.niranjan.certificates.controller;
 
+import com.niranjan.certificates.dto.request.ListQuery;
 import com.niranjan.certificates.dto.request.RecipientRequest;
+import com.niranjan.certificates.dto.response.PageResponse;
 import com.niranjan.certificates.dto.response.RecipientResponse;
 import com.niranjan.certificates.security.OrganizationPrincipal;
 import com.niranjan.certificates.service.RecipientService;
@@ -11,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -29,8 +30,9 @@ public class RecipientController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RecipientResponse>> getAll(@AuthenticationPrincipal OrganizationPrincipal principal) {
-        return ResponseEntity.ok(recipientService.getAll(principal.getOrgId()));
+    public ResponseEntity<PageResponse<RecipientResponse>> getAll(@AuthenticationPrincipal OrganizationPrincipal principal,
+                                                                  @ModelAttribute ListQuery query) {
+        return ResponseEntity.ok(recipientService.search(principal.getOrgId(), query));
     }
 
     @GetMapping("/{id}")

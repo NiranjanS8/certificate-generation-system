@@ -1,7 +1,9 @@
 package com.niranjan.certificates.service;
 
 import com.niranjan.certificates.dto.request.CertificateRequest;
+import com.niranjan.certificates.dto.request.ListQuery;
 import com.niranjan.certificates.dto.response.CertificateResponse;
+import com.niranjan.certificates.dto.response.PageResponse;
 import com.niranjan.certificates.dto.response.VerifyResponse;
 
 import java.util.List;
@@ -12,6 +14,8 @@ public interface CertificateService {
     CertificateResponse generate(UUID orgId, CertificateRequest request);
 
     List<CertificateResponse> getAll(UUID orgId);
+
+    PageResponse<CertificateResponse> search(UUID orgId, ListQuery query);
 
     CertificateResponse getById(UUID orgId, UUID id);
 

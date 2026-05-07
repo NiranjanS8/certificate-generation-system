@@ -1,7 +1,9 @@
 package com.niranjan.certificates.service.impl;
 
 import com.niranjan.certificates.dto.request.CertificateRequest;
+import com.niranjan.certificates.dto.request.ListQuery;
 import com.niranjan.certificates.dto.response.CertificateResponse;
+import com.niranjan.certificates.dto.response.PageResponse;
 import com.niranjan.certificates.dto.response.VerifyResponse;
 import com.niranjan.certificates.entity.*;
 import com.niranjan.certificates.exception.DuplicateResourceException;
@@ -15,6 +17,8 @@ import com.niranjan.certificates.service.CertificateService;
 import com.niranjan.certificates.service.ImageService;
 import com.niranjan.certificates.service.PdfService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +29,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -42,6 +48,11 @@ public class CertificateServiceImpl implements CertificateService {
             "A certificate has already been generated for this recipient.";
     private static final String ALPHANUMERIC = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final Set<String> ALLOWED_SORTS = Set.of(
+            "issuedAt", "recipientName", "courseName", "uniqueCode", "certificateTitle", "status");
+    private static final Map<String, String> SORT_ALIASES = Map.of(
+            "recipientName", "recipient.fullName",
+            "courseName", "recipient.course.name");
 
     @Override
     @Transactional
@@ -125,6 +136,13 @@ public class CertificateServiceImpl implements CertificateService {
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<CertificateResponse> search(UUID orgId, ListQuery query) {
+        Pageable pageable = query.toPageable("issuedAt", ALLOWED_SORTS, SORT_ALIASES);
+        return PageResponse.from(certificateRepository.findAll(certificateSpec(orgId, query), pageable), this::mapToResponse);
     }
 
     @Override
@@ -302,6 +320,34 @@ public class CertificateServiceImpl implements CertificateService {
         } catch (IOException ignored) {
             // Best effort cleanup after a failed transaction.
         }
+    }
+
+    private Specification<Certificate> certificateSpec(UUID orgId, ListQuery query) {
+        return (root, criteriaQuery, cb) -> {
+            var predicate = cb.equal(root.get("organization").get("id"), orgId);
+
+            String search = query.normalizedSearch();
+            if (search != null) {
+                String pattern = "%" + search + "%";
+                predicate = cb.and(predicate, cb.or(
+                        cb.like(cb.lower(root.get("recipient").get("fullName")), pattern),
+                        cb.like(cb.lower(root.get("recipient").get("course").get("name")), pattern),
+                        cb.like(cb.lower(root.get("uniqueCode")), pattern),
+                        cb.like(cb.lower(root.get("certificateTitle")), pattern)
+                ));
+            }
+
+            String status = query.normalizedStatus();
+            if (status != null && !"all".equals(status)) {
+                predicate = cb.and(predicate, cb.equal(root.get("status"), CertificateStatus.valueOf(status.toUpperCase())));
+            }
+
+            if (query.getCourseId() != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("recipient").get("course").get("id"), query.getCourseId()));
+            }
+
+            return predicate;
+        };
     }
 
     private CertificateResponse mapToResponse(Certificate certificate) {

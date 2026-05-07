@@ -38,7 +38,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { api, appName, appTagline, emptySession, storageKey } from "./api/client.js";
+import { api, appName, appTagline, emptySession, pageContent, storageKey } from "./api/client.js";
 import { Button } from "./components/Button.jsx";
 import { ConfirmationDialog, Toast } from "./components/Feedback.jsx";
 import { FormError, FormField, Input, Detail, StatusBadge } from "./components/AppUi.jsx";
@@ -107,12 +107,18 @@ function App() {
     try {
       const [profile, certificates, recipients, courses, signatories] = await Promise.all([
         api("/api/org/profile", {}, session),
-        api("/api/certificates", {}, session),
-        api("/api/recipients", {}, session),
-        api("/api/courses", {}, session),
-        api("/api/signatories", {}, session),
+        api("/api/certificates?size=100&sort=issuedAt&direction=desc", {}, session),
+        api("/api/recipients?size=100&sort=createdAt&direction=desc", {}, session),
+        api("/api/courses?size=100&sort=name&direction=asc", {}, session),
+        api("/api/signatories?size=100&sort=name&direction=asc", {}, session),
       ]);
-      setData({ profile, certificates, recipients, courses, signatories });
+      setData({
+        profile,
+        certificates: pageContent(certificates),
+        recipients: pageContent(recipients),
+        courses: pageContent(courses),
+        signatories: pageContent(signatories),
+      });
     } catch (error) {
       setApiError(readError(error));
     } finally {

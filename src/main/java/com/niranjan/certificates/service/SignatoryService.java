@@ -1,6 +1,8 @@
 package com.niranjan.certificates.service;
 
+import com.niranjan.certificates.dto.request.ListQuery;
 import com.niranjan.certificates.dto.request.SignatoryRequest;
+import com.niranjan.certificates.dto.response.PageResponse;
 import com.niranjan.certificates.dto.response.SignatoryResponse;
 
 import java.util.List;
@@ -11,6 +13,8 @@ public interface SignatoryService {
     SignatoryResponse create(UUID orgId, SignatoryRequest request);
 
     List<SignatoryResponse> getAll(UUID orgId);
+
+    PageResponse<SignatoryResponse> search(UUID orgId, ListQuery query);
 
     SignatoryResponse getById(UUID orgId, UUID id);
 

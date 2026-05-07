@@ -31,3 +31,7 @@ export async function api(path, options = {}, session = emptySession) {
   if (contentType.includes("application/pdf") || contentType.startsWith("image/") || contentType.includes("application/octet-stream")) return response.blob();
   return response.json();
 }
+
+export function pageContent(payload) {
+  return Array.isArray(payload) ? payload : payload?.content || [];
+}
