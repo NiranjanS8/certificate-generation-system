@@ -38,7 +38,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { api, appName, appTagline, emptySession, pageContent, storageKey } from "./api/client.js";
+import { api, appName, appTagline, emptySession, pageContent, setAuthSessionHandler, storageKey } from "./api/client.js";
 import { Button } from "./components/Button.jsx";
 import { ConfirmationDialog, Toast } from "./components/Feedback.jsx";
 import { FormError, FormField, Input, Detail, StatusBadge } from "./components/AppUi.jsx";
@@ -85,6 +85,11 @@ function App() {
     localStorage.setItem(storageKey, JSON.stringify(session));
     setIsAuthenticated(Boolean(session.token));
   }, [session]);
+
+  useEffect(() => {
+    setAuthSessionHandler(setSession);
+    return () => setAuthSessionHandler(null);
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) loadWorkspace();
